@@ -70,6 +70,14 @@ public static class Achievements
         TorchStun.AnyStunned += OnStunned;
     }
 
+    // The icon (256 x 256, the same art as the Steam one): Art/UI/Resources/Achievements/<ID>.png, made by
+    // SourceAssets/Tools/story_art/achievement_icons.py. The Steam uploads (unlocked and locked JPG) are in
+    // Docs/Steam/achievement_icons.
+    public static Sprite Icon(string id)
+    {
+        return Resources.Load<Sprite>("Achievements/" + id);
+    }
+
     public static bool IsUnlocked(string id)
     {
         return Load().unlocked.Contains(id);
