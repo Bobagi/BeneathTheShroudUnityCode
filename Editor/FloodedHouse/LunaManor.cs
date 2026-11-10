@@ -38,6 +38,8 @@ public static class LunaManor
         // the master bedrooms; the ochre plinth round the cream facade; dark slate on every roof; the stained glass by the
         // front door; the gilded tracery in the pediment.
         public Material hallFloor, boards, goldPaper, redPaper, greenPaper, plinth, slate, stained, gilt;
+        // The courtyard of Dayse's "Varanda" drawings (21/10): the flooded lawn and the pebbles in its corners (null = garden).
+        public Material lawn, pebbles;
         public System.Func<Material, float> tiling;
     }
 
@@ -53,6 +55,9 @@ public static class LunaManor
         public float footing;
         // Interior partitions and furniture-scale detail (the menu, 150 m out at sea, only needs the shell).
         public bool interior;
+        // The plan built larger in x and z (heights stay): the manor's transform carries the scale, so every room,
+        // door and window grows with it; UVs keep the textures at their real size (0 = 1).
+        public float planScale;
     }
 
     // ---------------------------------------------------------------- heights
@@ -62,7 +67,11 @@ public static class LunaManor
     public const float UpperFloor = 3.72f;
     public const float UpperCeiling = 6.9f;
     public const float AtticFloor = 7.05f;
+    // The island's ground round the house (outside).
     public const float GardenY = -0.3f;
+    // The courtyard lawn, two 18 cm steps under the gallery (Dayse's "Varanda" elevations: the gallery's edge, a step,
+    // the lawn).
+    public const float GardenFloor = -0.36f;
     private const float Ext = 0.3f;
     private const float Int = 0.2f;
 
@@ -77,7 +86,14 @@ public static class LunaManor
     public static readonly Rect Deposito = R(7.1f, 26.4f, 15f, 33.7f);
     public static readonly Rect Garagem = R(-14.7f, 26.6f, -6.9f, 33.7f);
     public static readonly Rect Courtyard = R(-9.7f, 8.9f, 10.1f, 21.4f);
-    public static readonly Rect Garden = R(-7.5f, 11.4f, 7.9f, 19.2f);
+    // The sunken garden, edge steps included: from the columns' line on three sides to the south stairs (Dayse's
+    // "Varanda vista de cima": the lawn runs to the hall, no gallery on the south side).
+    public static readonly Rect Garden = R(-7.5f, 10.3f, 7.9f, 19.2f);
+    // The grand wooden stair from the lawn up to the upper floor's north gallery (her "porta dos fundos com a escada"):
+    // x span and the z of its foot.
+    public const float GrandStairX0 = -1.7f, GrandStairX1 = 1.9f, GrandStairTread = 0.22f;
+    public const int GrandStairRisers = 22;
+    public static float GrandStairFootZ => Garden.yMax - GrandStairRisers * GrandStairTread;
     // Bounding boxes of the rooms with a shaped outline (for the map, zones and probes).
     public static readonly Rect Hall = R(-4f, 0f, 4f, 8.9f);
     public static readonly Rect Jantar = R(-11.6f, 0.9f, -4f, 8.9f);
@@ -101,6 +117,8 @@ public static class LunaManor
     public static readonly Rect Gerador2 = R(10.4f, 19.2f, 15f, 21.6f);
     public static readonly Rect Solteiro3 = R(10.4f, 14.4f, 15f, 19.2f);
     public static readonly Rect QuartoAlex = R(10.4f, 8.9f, 15f, 14.4f);
+    // Where the roofs stop over the galleries (her "com telhado": the eaves cover the galleries' outer half).
+    public const float VerandaRoofW = -8.7f, VerandaRoofN = 20.4f, VerandaRoofE = 9.2f;
     // Fallen ceiling in the east gallery, from the stair's landing to single room 3.
     public static readonly Rect Blocked = R(7.9f, 10.35f, 10.4f, 14.3f);
 
@@ -143,6 +161,8 @@ public static class LunaManor
         { "HallPlanks", 2.4f }, { "WallBoards", 2.0f }, { "CreamPlaster", 2.2f }, { "OchrePlaster", 2.2f }, { "CreamFacade", 2.2f }, { "OchrePlinth", 2.2f }, { "SlateRoof", 2.2f },
         { "BlackMarble", 1.5f }, { "WoodFloorWide", 2f }, { "WallpaperGold", 0.422f }, { "WallpaperRed", 0.495f }, { "WallpaperGreen", 0.348f },
         { "WallpaperBlue", 0.431f },
+        // The courtyard lawn and its corner pebbles (ambientCG Grass004, Gravel022; 29/10).
+        { "GardenGrass", 1.6f }, { "Pebbles", 1.2f },
     };
 
     // Tiles that are not square: their real height in metres (the texture's v scale is width / height).
@@ -257,6 +277,16 @@ public static class LunaManor
 
     private static Palette p;
     private static Options o;
+    // The plan scale of the build in progress (Options.planScale).
+    private static float K = 1f;
+
+    // A local point as the manor's transform stretches it (for UVs in metres).
+    private static Vector3 Sc(Vector3 q) => new Vector3(q.x * K, q.y, q.z * K);
+
+    // The basement stair's hole in the laundry floor keeps its size in metres under the plan scale (the stair under it
+    // is the game's, in scene coordinates): measured from the corner the game scales about (StairX0, StairNorthZ).
+    private static float HoleX1 => StairX0 + (StairX1 - StairX0) / K;
+    private static float HoleSouthZ => StairNorthZ - (StairNorthZ - StairSouthZ) / K;
     private static Transform manor;
 
     public static Transform Build(Transform parent, Vector3 origin, Palette palette, Options options)
@@ -266,6 +296,8 @@ public static class LunaManor
         manor = new GameObject("LunaManor").transform;
         manor.SetParent(parent, false);
         manor.position = origin;
+        K = o.planScale > 0f ? o.planScale : 1f;
+        manor.localScale = new Vector3(K, 1f, K);
         Rooms();
         trimParts = Group("TrimParts", manor);
         Ground();
@@ -350,9 +382,9 @@ public static class LunaManor
         if (o.basementStairHole)
         {
             Floor("Lavanderia_N", g, Box(R(Lavanderia.xMin, StairNorthZ, Lavanderia.xMax, Lavanderia.yMax)), p.concrete);
-            Floor("Lavanderia_S", g, Box(R(Lavanderia.xMin, Lavanderia.yMin, Lavanderia.xMax, StairSouthZ)), p.concrete);
-            Floor("Lavanderia_E", g, Box(R(StairX1, StairSouthZ, Lavanderia.xMax, StairNorthZ)), p.concrete);
-            Floor("Lavanderia_W", g, Box(R(Lavanderia.xMin, StairSouthZ, StairX0, StairNorthZ)), p.concrete);
+            Floor("Lavanderia_S", g, Box(R(Lavanderia.xMin, Lavanderia.yMin, Lavanderia.xMax, HoleSouthZ)), p.concrete);
+            Floor("Lavanderia_E", g, Box(R(HoleX1, HoleSouthZ, Lavanderia.xMax, StairNorthZ)), p.concrete);
+            Floor("Lavanderia_W", g, Box(R(Lavanderia.xMin, HoleSouthZ, StairX0, StairNorthZ)), p.concrete);
         }
         else
         {
@@ -436,26 +468,31 @@ public static class LunaManor
         Walls("Hall_E", g, new[] { V(4f, 1.9f), V(4f, 8.9f) }, false, 0f, GroundCeiling, Int, null, null, Hole.Open(V(4f, 5.4f), 1.6f, 0f, 2.6f));
         Walls("Jantar_W", g, new[] { V(-11.6f, 3.7f), V(-11.6f, 8.9f) }, false, 0f, GroundCeiling, Int, null, null, Hole.Door(V(-11.6f, 6.3f), 1f, 2.2f));
         Walls("Estar_E", g, new[] { V(11.6f, 3.4f), V(11.6f, 8.9f) }, false, 0f, GroundCeiling, Int, null, null, Hole.Door(V(11.6f, 6.3f), 1f, 2.2f));
-        Walls("Kitchen_N", g, new[] { V(-14.4f, 16f), V(-9.7f, 16f) }, false, 0f, GroundCeiling, Int, null, null, Hole.Door(V(-11.9f, 16f), 0.9f, 2.1f));
-        Walls("Loucas_W", g, new[] { V(-9.7f, 21.4f), V(-9.7f, 24.6f) }, false, 0f, GroundCeiling, Int, null, null, Hole.Door(V(-9.7f, 23f), 0.9f, 2.1f));
+        Walls("Kitchen_N", g, new[] { V(-14.4f, 16f), V(-9.7f, 16f) }, false, 0f, GroundCeiling, Int, null, null, Hole.Door(V(-11.9f, 16f), 1f, 2.1f));
+        Walls("Loucas_W", g, new[] { V(-9.7f, 21.4f), V(-9.7f, 24.6f) }, false, 0f, GroundCeiling, Int, null, null, Hole.Door(V(-9.7f, 23f), 1f, 2.1f));
         Walls("Loucas_E", g, new[] { V(-4.9f, 21.4f), V(-4.9f, 24.6f) }, false, 0f, GroundCeiling, Int, null, null);
         Walls("Caixa_W", g, new[] { V(5.1f, 21.4f), V(5.1f, 24.6f) }, false, 0f, GroundCeiling, Int, null, null);
         Walls("Caixa_E", g, new[] { V(10.1f, 21.4f), V(10.1f, 24.6f) }, false, 0f, GroundCeiling, Int, null, null);
         Walls("Lavanderia_S", g, new[] { V(10.1f, 15.4f), V(15f, 15.4f) }, false, 0f, GroundCeiling, Int, null, null);
         Walls("Library_N", g, new[] { V(10.1f, 13.4f), V(18.7f, 13.4f) }, false, 0f, GroundCeiling, Int, null, null,
-            Hole.Door(HiddenDoor, 0.9f, 2.1f, false));
+            Hole.Door(HiddenDoor, 1f, 2.1f, false));
     }
 
     // ---------------------------------------------------------------- courtyard
 
+    // Dayse's "Varanda" drawings (GDD "Planta da Casa e Imagens", 21/10): seen from above, the upper floor's U of
+    // galleries round the lawn (wood floor, an openwork rail, the roofs over their outer half); from the glass door, the
+    // lawn running up to a gallery of square pillars on three sides, a paneled double door at the back and the grand
+    // wooden stair rising from the lawn to the upper gallery in front of it. "Grama alagada do centro... pedregulhos nos
+    // cantos, tomados pela água": the game floods the lawn (FloodedHouseManor) over these pebbles.
     private static void Courtyard_()
     {
         Transform c = Group("Courtyard", manor);
         Rect cy = Courtyard;
         Rect gd = Garden;
-        // The gallery floor round the garden (four strips) and the garden, a step down.
-        // The south strip leaves out the hall's half-round glass porch (its own plank floor; both at the same height
-        // they fought, a terracotta band showed at the courtyard door).
+        Material wood = Or(p.hallFloor, p.woodFloor);
+        // The gallery floor round the garden (four strips). The south strip carries the two stairs to the upper floor
+        // and leaves out the hall's half-round glass porch (its own plank floor).
         Floor("Gallery_SW", c, Box(R(cy.xMin, cy.yMin, -2.4f, gd.yMin)), p.terracotta);
         Floor("Gallery_SE", c, Box(R(2.4f, cy.yMin, cy.xMax, gd.yMin)), p.terracotta);
         List<Vector2> porchGap = Arc(V(0f, 8.9f), 2.4f, 1.1f, 180f, 0f, 3);
@@ -464,19 +501,59 @@ public static class LunaManor
         Floor("Gallery_N", c, Box(R(cy.xMin, gd.yMax, cy.xMax, cy.yMax)), p.terracotta);
         Floor("Gallery_W", c, Box(R(cy.xMin, gd.yMin, gd.xMin, gd.yMax)), p.terracotta);
         Floor("Gallery_E", c, Box(R(gd.xMax, gd.yMin, cy.xMax, gd.yMax)), p.terracotta);
-        Slab("Garden", c, Box(gd), GardenY - 0.3f, GardenY, p.garden, p.garden, p.stone, true);
         // The gallery's roof on three sides (the upper floor's galleries stand on it); the south side is open.
         Slab("GalleryRoof_W", c, Box(R(cy.xMin, cy.yMin, gd.xMin, cy.yMax)), GroundCeiling, SlabTop, p.roofFlat, p.ceiling, p.ceiling, true);
         Slab("GalleryRoof_E", c, Box(R(gd.xMax, cy.yMin, cy.xMax, cy.yMax)), GroundCeiling, SlabTop, p.roofFlat, p.ceiling, p.ceiling, true);
         Slab("GalleryRoof_N", c, Box(R(gd.xMin, gd.yMax, gd.xMax, cy.yMax)), GroundCeiling, SlabTop, p.roofFlat, p.ceiling, p.ceiling, true);
 
-        // The courtyard's walls (the rooms round it), with their doors.
+        // The sunken lawn and its edge: one 18 cm step all round (on the south, at the foot of the stairs), the lawn a
+        // second step down.
+        Material lawn = Or(p.lawn, p.garden);
+        Slab("Lawn", c, Box(gd), GardenFloor - 0.3f, GardenFloor, lawn, lawn, p.stone, true);
+        const float step = 0.35f, stepTop = GardenFloor * 0.5f;
+        Material edge = p.stone;
+        Block("Edge_S", c, new Vector3(gd.center.x, (GardenFloor + stepTop) * 0.5f, gd.yMin + step * 0.5f), 0f, new Vector3(gd.width, stepTop - GardenFloor, step), edge, true);
+        Block("Edge_W", c, new Vector3(gd.xMin + step * 0.5f, (GardenFloor + stepTop) * 0.5f, gd.center.y + step * 0.5f), 0f, new Vector3(step, stepTop - GardenFloor, gd.height - step), edge, true);
+        Block("Edge_E", c, new Vector3(gd.xMax - step * 0.5f, (GardenFloor + stepTop) * 0.5f, gd.center.y + step * 0.5f), 0f, new Vector3(step, stepTop - GardenFloor, gd.height - step), edge, true);
+        foreach ((float x0, float x1) in new[] { (gd.xMin + step, GrandStairX0), (GrandStairX1, gd.xMax - step) })
+        {
+            Block("Edge_N", c, new Vector3((x0 + x1) * 0.5f, (GardenFloor + stepTop) * 0.5f, gd.yMax - step * 0.5f), 0f, new Vector3(x1 - x0, stepTop - GardenFloor, step), edge, true);
+        }
+
+        // Pebbles in the corners (the water covers them in the game).
+        if (p.pebbles != null)
+        {
+            Vector2[] corners = { V(gd.xMin + step, gd.yMin + step), V(gd.xMax - step, gd.yMin + step), V(gd.xMin + step, gd.yMax - step), V(gd.xMax - step, gd.yMax - step) };
+            float[] reach = { 2.1f, 1.9f, 1.7f, 1.8f };
+            Random.State saved = Random.state;
+            Random.InitState(2110);
+            for (int i = 0; i < corners.Length; i++)
+            {
+                Vector2 k = corners[i];
+                Vector2 inward = new Vector2(k.x < gd.center.x ? 1f : -1f, k.y < gd.center.y ? 1f : -1f);
+                // A ragged quarter disc out from the corner.
+                List<Vector2> blob = new List<Vector2> { k };
+                const int n = 9;
+                for (int j = 0; j <= n; j++)
+                {
+                    float a = j / (float)n * Mathf.PI * 0.5f;
+                    float r = reach[i] * Random.Range(0.62f, 1f);
+                    blob.Add(k + new Vector2(Mathf.Cos(a) * inward.x, Mathf.Sin(a) * inward.y) * r);
+                }
+
+                Slab("Pebbles_" + i, c, blob.ToArray(), GardenFloor, GardenFloor + 0.012f, p.pebbles, p.pebbles, p.pebbles, false);
+            }
+
+            Random.state = saved;
+        }
+
+        // The courtyard's walls (the rooms round it), with their doors; at the back, the paneled double door.
         Walls("Court_W", c, new[] { V(cy.xMin, cy.yMin), V(cy.xMin, cy.yMax) }, false, -0.25f, GroundCeiling, Ext, null, null,
             Hole.Door(V(cy.xMin, 12.6f), 1f, 2.2f));
         Walls("Court_N", c, new[] { V(cy.xMin, cy.yMax), V(cy.xMax, cy.yMax) }, false, -0.25f, GroundCeiling, Ext, null, null,
-            Hole.Door(V(-7f, cy.yMax), 0.9f, 2.1f), Hole.Open(V(0.1f, cy.yMax), 1.6f, 0f, 2.6f), Hole.Door(V(7.5f, cy.yMax), 0.9f, 2.1f));
+            Hole.Door(V(-7f, cy.yMax), 1f, 2.1f), Hole.Door(V(0.1f, cy.yMax), BackDoorWidth, 2.5f), Hole.Door(V(7.5f, cy.yMax), 1f, 2.1f));
         Walls("Court_E", c, new[] { V(cy.xMax, cy.yMin), V(cy.xMax, cy.yMax) }, false, -0.25f, GroundCeiling, Ext, null, null,
-            Hole.Door(V(cy.xMax, 10.4f), 1f, 2.2f), Hole.Door(PassageDoor, 0.9f, 2.1f, false), Hole.Door(LaundryDoor, 1f, 2.2f, false));
+            Hole.Door(V(cy.xMax, 10.4f), 1f, 2.2f), Hole.Door(PassageDoor, 1f, 2.1f, false), Hole.Door(LaundryDoor, 1f, 2.2f, false));
         // South: the dining room, the hall's half-round glass porch (its glass door into the courtyard) and the
         // living room; the wall runs on to the library's corner.
         List<Vector2> south = new List<Vector2> { V(-11.6f, 8.9f), V(-2.4f, 8.9f) };
@@ -484,63 +561,183 @@ public static class LunaManor
         south.Add(V(11.6f, 8.9f));
         Walls("Court_S", c, south.ToArray(), false, -0.25f, GroundCeiling, Ext, null, null, Hole.Door(V(0f, 8.9f + 1.1f * Mathf.Sin(60f * Mathf.Deg2Rad)), 1.6f, 2.5f));
 
-        // Columns on the garden's edge, and the low wall between them (open in the middle of each side).
-        Transform cols = Group("Columns", c);
-        for (float x = gd.xMin; x <= gd.xMax + 0.01f; x += (gd.xMax - gd.xMin) / 5f)
-        {
-            Column("Col_S", cols, V(x, gd.yMin), GardenY, GroundCeiling, 0.34f);
-            Column("Col_N", cols, V(x, gd.yMax), GardenY, GroundCeiling, 0.34f);
-        }
-
-        for (float z = gd.yMin + (gd.yMax - gd.yMin) / 3f; z < gd.yMax - 0.1f; z += (gd.yMax - gd.yMin) / 3f)
-        {
-            Column("Col_W", cols, V(gd.xMin, z), GardenY, GroundCeiling, 0.34f);
-            Column("Col_E", cols, V(gd.xMax, z), GardenY, GroundCeiling, 0.34f);
-        }
-
-        float mid = (gd.xMin + gd.xMax) * 0.5f;
-        Walls("Mureta_S", c, new[] { V(gd.xMin, gd.yMin), V(mid - 1.2f, gd.yMin) }, false, GardenY, 0.55f, 0.22f, p.stone, p.stone);
-        Walls("Mureta_S2", c, new[] { V(mid + 1.2f, gd.yMin), V(gd.xMax, gd.yMin) }, false, GardenY, 0.55f, 0.22f, p.stone, p.stone);
-        Walls("Mureta_N", c, new[] { V(gd.xMin, gd.yMax), V(mid - 1.2f, gd.yMax) }, false, GardenY, 0.55f, 0.22f, p.stone, p.stone);
-        Walls("Mureta_N2", c, new[] { V(mid + 1.2f, gd.yMax), V(gd.xMax, gd.yMax) }, false, GardenY, 0.55f, 0.22f, p.stone, p.stone);
-        float zm = (gd.yMin + gd.yMax) * 0.5f;
-        Walls("Mureta_W", c, new[] { V(gd.xMin, gd.yMin), V(gd.xMin, zm - 1f), }, false, GardenY, 0.55f, 0.22f, p.stone, p.stone);
-        Walls("Mureta_W2", c, new[] { V(gd.xMin, zm + 1f), V(gd.xMin, gd.yMax) }, false, GardenY, 0.55f, 0.22f, p.stone, p.stone);
-        Walls("Mureta_E", c, new[] { V(gd.xMax, gd.yMin), V(gd.xMax, zm - 1f) }, false, GardenY, 0.55f, 0.22f, p.stone, p.stone);
-        Walls("Mureta_E2", c, new[] { V(gd.xMax, zm + 1f), V(gd.xMax, gd.yMax) }, false, GardenY, 0.55f, 0.22f, p.stone, p.stone);
-        // A step down into the garden at each opening (the garden lies 30 cm below the gallery).
-        foreach (Vector3 step in new[]
+        // Square pillars on the galleries' edge carrying the upper floor (four on the north as she draws them: the
+        // corners and a pair flanking the back door; three more down each side).
+        Transform cols = Group("Pillars", c);
+        float px0 = gd.xMin - 0.2f, px1 = gd.xMax + 0.2f, pzN = gd.yMax + 0.2f;
+        foreach (Vector2 at in new[]
                  {
-                     new Vector3(mid, 0f, gd.yMin + 0.2f), new Vector3(mid, 0f, gd.yMax - 0.2f), new Vector3(gd.xMin + 0.2f, 90f, zm), new Vector3(gd.xMax - 0.2f, 90f, zm),
+                     V(px0, pzN), V(-3.2f, pzN), V(3.6f, pzN), V(px1, pzN),
+                     V(px0, 10.55f), V(px0, 13.4f), V(px0, 16.3f), V(px1, 10.55f), V(px1, 13.4f), V(px1, 16.3f),
                  })
         {
-            Block("GardenStep", c, new Vector3(step.x, GardenY + 0.075f, step.z), step.y, new Vector3(2.3f, 0.15f, 0.4f), p.stone, true);
+            Pillar("Pillar", cols, at, 0f, GroundCeiling, 0.4f);
+        }
+
+        GrandStair(c, wood);
+        if (o.interior)
+        {
+            BackDoor(c);
         }
 
         // The two stairs to the upper floor, in the south corners, along the open south gallery: each climbs from
         // the middle out to its wing's gallery (20 risers of 18.6 cm, 25 cm treads).
-        Stair("Stair_W", c, -2.6f, -1f);
-        Stair("Stair_E", c, 3.0f, 1f);
+        Stair("Stair_W", c, -2.6f, -1f, wood);
+        Stair("Stair_E", c, 3.0f, 1f, wood);
     }
 
-    private static void Stair(string name, Transform parent, float startX, float dir)
+    // The back door's opening (north wall of the courtyard, into the vestibule): two paneled leaves.
+    public const float BackDoorWidth = 1.6f;
+
+    // A square pillar (her elevations draw them square, plain), with a plinth and a cap.
+    private static void Pillar(string name, Transform parent, Vector2 at, float y0, float y1, float side)
+    {
+        Block(name, parent, new Vector3(at.x, (y0 + y1) * 0.5f, at.y), 0f, new Vector3(side, y1 - y0, side), p.stone, true);
+        Block(name + "_Base", parent, new Vector3(at.x, y0 + 0.11f, at.y), 0f, new Vector3(side + 0.1f, 0.22f, side + 0.1f), p.stone, false);
+        Block(name + "_Cap", parent, new Vector3(at.x, y1 - 0.09f, at.y), 0f, new Vector3(side + 0.12f, 0.18f, side + 0.12f), p.stone, false);
+    }
+
+    // The grand stair (her "Varanda na parte da porta dos fundos com a escada"): wooden, as wide as the gap between the
+    // middle pillars allows, from the lawn up to the north gallery of the upper floor, its top at the gallery's edge
+    // in front of the back door. Solid steps, a stepped cheek wall each side, a sloped rail on balusters and, at the
+    // foot, the rails turned out to two newel posts (the curls of the drawing).
+    private static void GrandStair(Transform parent, Material wood)
+    {
+        Transform s = Group("GrandStair", parent);
+        float x0 = GrandStairX0, x1 = GrandStairX1, mid = (x0 + x1) * 0.5f;
+        float rise = (UpperFloor - GardenFloor) / GrandStairRisers;
+        float foot = GrandStairFootZ, topZ = Garden.yMax;
+        for (int i = 0; i < GrandStairRisers; i++)
+        {
+            float top = GardenFloor + rise * (i + 1);
+            float za = foot + i * GrandStairTread, zb = za + GrandStairTread;
+            Block("Step" + i, s, new Vector3(mid, (GardenFloor + top) * 0.5f, (za + zb) * 0.5f), 0f, new Vector3(x1 - x0, top - GardenFloor, GrandStairTread), wood, true);
+        }
+
+        const float cheek = 0.14f, railUp = 0.92f;
+        float run = topZ - foot, h = UpperFloor - GardenFloor;
+        float len = Mathf.Sqrt(run * run + h * h);
+        float slope = Mathf.Atan2(h, run) * Mathf.Rad2Deg;
+        foreach (float side in new[] { -1f, 1f })
+        {
+            float x = side < 0f ? x0 - cheek * 0.5f : x1 + cheek * 0.5f;
+            for (int i = 0; i < GrandStairRisers; i++)
+            {
+                float top = GardenFloor + rise * (i + 1) + 0.12f;
+                float za = foot + i * GrandStairTread;
+                Block("Cheek", s, new Vector3(x, (GardenFloor + top) * 0.5f, za + GrandStairTread * 0.5f), 0f, new Vector3(cheek, top - GardenFloor, GrandStairTread + 0.002f), p.trim, true);
+            }
+
+            // The rail along the slope, over the nosing line, on a baluster every third step.
+            GameObject rail = Block("Rail", s, new Vector3(x, (GardenFloor + UpperFloor) * 0.5f + railUp, (foot + topZ) * 0.5f), 0f, new Vector3(0.12f, 0.09f, len), p.trim, false);
+            rail.transform.rotation = manor.rotation * Quaternion.Euler(-slope, 0f, 0f);
+            for (int i = 1; i < GrandStairRisers; i += 3)
+            {
+                float top = GardenFloor + rise * (i + 1);
+                Block("Baluster", s, new Vector3(x, top + 0.12f + (railUp - 0.12f) * 0.5f, foot + (i + 0.5f) * GrandStairTread), 0f, new Vector3(0.05f, railUp - 0.12f, 0.05f), p.trim, false);
+            }
+
+            // An invisible rail the height of a person along the open side (nothing walks off the stair's edge).
+            GameObject stop = Block("RailStop", s, new Vector3(x, (GardenFloor + UpperFloor) * 0.5f + 0.9f, (foot + topZ) * 0.5f), 0f, new Vector3(0.06f, 1.8f, len), p.trim, true);
+            stop.transform.rotation = manor.rotation * Quaternion.Euler(-slope, 0f, 0f);
+            stop.GetComponent<MeshRenderer>().enabled = false;
+
+            // The foot: the rail turns out to a newel post, a short curved run of three pieces.
+            float outX = x + side * 0.55f, postZ = foot - 0.35f;
+            Vector2 a = V(x, foot + GrandStairTread), m1 = V(x + side * 0.12f, foot - 0.1f), m2 = V(x + side * 0.36f, foot - 0.3f), b = V(outX, postZ);
+            Vector2[] curl = { a, m1, m2, b };
+            for (int k = 0; k < curl.Length - 1; k++)
+            {
+                Vector2 d = curl[k + 1] - curl[k];
+                float yaw = Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg;
+                Vector2 c = (curl[k] + curl[k + 1]) * 0.5f;
+                float y = GardenFloor + 0.12f + railUp * 0.95f;
+                Block("Curl", s, new Vector3(c.x, y, c.y), yaw, new Vector3(0.12f, 0.09f, d.magnitude + 0.06f), p.trim, false);
+                Block("CurlWall", s, new Vector3(c.x, (GardenFloor + GardenFloor + 0.3f) * 0.5f, c.y), yaw, new Vector3(cheek, 0.3f, d.magnitude + 0.04f), p.trim, true);
+            }
+
+            Block("Newel", s, new Vector3(outX, GardenFloor + 0.6f, postZ), 0f, new Vector3(0.26f, 1.2f, 0.26f), p.trim, true);
+            Block("NewelCap", s, new Vector3(outX, GardenFloor + 1.24f, postZ), 0f, new Vector3(0.34f, 0.08f, 0.34f), p.trim, false);
+        }
+    }
+
+    // The paneled double door at the back of the courtyard (into the vestibule): two leaves on the courtyard face of
+    // the wall, hinged at the jambs, shut, opening into the courtyard together (Door.Link) and closing again with E.
+    private static void BackDoor(Transform parent)
+    {
+        const float t = 0.07f;
+        float half = BackDoorWidth * 0.5f;
+        float leaf = half - t - 0.005f, height = 2.5f - t - 0.01f;
+        float z = Courtyard.yMax - Ext * 0.5f;
+        Door[] leaves = new Door[2];
+        for (int i = 0; i < 2; i++)
+        {
+            float side = i == 0 ? -1f : 1f;
+            Transform pivot = Group(i == 0 ? "BackDoor_L" : "BackDoor_R", parent);
+            pivot.position = manor.TransformPoint(new Vector3(0.1f + side * (half - t), 0f, z));
+            // The leaf runs along the pivot's +x from the hinge to the meeting edge; its face toward the courtyard.
+            pivot.rotation = manor.rotation * Quaternion.Euler(0f, side < 0f ? 0f : 180f, 0f);
+            FloodedHouseBuilder.DoorLeaf(pivot.name + "_Leaf", pivot, leaf, height, 0.045f, p.trim);
+            Door door = pivot.gameObject.AddComponent<Door>();
+            door.Configure(Door.Lock.None, null, null, null, null);
+            SerializedObject so = new SerializedObject(door);
+            so.FindProperty("openAngle").floatValue = side < 0f ? 95f : -95f;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            leaves[i] = door;
+        }
+
+        Door.Link(leaves[0], leaves[1]);
+    }
+
+    // An openwork wooden rail along a polyline on the upper floor: a bottom rail, slats every 13 cm, a capping rail at
+    // 1 m, and an invisible wall the same height (nothing falls through the slats). Into TrimParts: one mesh at the end.
+    private static void Balustrade(Transform parent, Vector2[] pts)
+    {
+        const float height = 1f, gap = 0.13f;
+        for (int i = 0; i + 1 < pts.Length; i++)
+        {
+            Vector2 a = pts[i], b = pts[i + 1];
+            float len = Vector2.Distance(a, b);
+            Vector2 dir = (b - a) / len;
+            float yaw = -Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+            Vector2 c = (a + b) * 0.5f;
+            Block("RailBottom", trimParts, new Vector3(c.x, UpperFloor + 0.05f, c.y), yaw, new Vector3(len + 0.1f, 0.1f, 0.1f), p.trim, false);
+            Block("RailCap", trimParts, new Vector3(c.x, UpperFloor + height - 0.04f, c.y), yaw, new Vector3(len + 0.14f, 0.08f, 0.16f), p.trim, false);
+            int slats = Mathf.Max(1, Mathf.RoundToInt(len / gap));
+            for (int k = 0; k <= slats; k++)
+            {
+                Vector2 at = Vector2.Lerp(a, b, k / (float)slats);
+                Block("Slat", trimParts, new Vector3(at.x, UpperFloor + height * 0.5f, at.y), yaw, new Vector3(0.045f, height - 0.16f, 0.045f), p.trim, false);
+            }
+
+            GameObject stop = Block("RailStop", parent, new Vector3(c.x, UpperFloor + 0.6f, c.y), yaw, new Vector3(len, 1.2f, 0.12f), p.trim, true);
+            stop.GetComponent<MeshRenderer>().enabled = false;
+        }
+    }
+
+    // Wooden like the grand stair and open underneath (29/10: as solid stucco masses they stood in the lawn as a white
+    // wall): a block per step the height of its riser, a sloped stringer under the steps on the garden side.
+    private static void Stair(string name, Transform parent, float startX, float dir, Material wood)
     {
         Transform s = Group(name, parent);
         const int risers = 20;
         const float tread = 0.25f;
         const float z0 = 8.95f + Ext * 0.5f, z1 = 10.25f;
+        float rise = UpperFloor / risers;
         for (int i = 0; i < risers; i++)
         {
-            float top = UpperFloor * (i + 1) / risers;
+            float top = rise * (i + 1);
             float xa = startX + dir * i * tread;
             float xb = xa + dir * tread;
-            Block("Step" + i, s, new Vector3((xa + xb) * 0.5f, top * 0.5f, (z0 + z1) * 0.5f), 0f, new Vector3(tread, top, z1 - z0), p.stone, true);
+            Block("Step" + i, s, new Vector3((xa + xb) * 0.5f, top - rise * 0.5f, (z0 + z1) * 0.5f), 0f, new Vector3(tread, rise, z1 - z0), wood, true);
         }
 
         // Handrail and an invisible rail on the open side.
         float run = risers * tread;
         float len = Mathf.Sqrt(run * run + UpperFloor * UpperFloor);
         float slope = Mathf.Atan2(UpperFloor, run) * Mathf.Rad2Deg;
+        GameObject stringer = Block("Stringer", s, new Vector3(startX + dir * run * 0.5f, UpperFloor * 0.5f - 0.16f, z1 - 0.03f), 0f, new Vector3(len, 0.34f, 0.06f), p.trim, false);
+        stringer.transform.rotation = manor.rotation * Quaternion.Euler(0f, 0f, slope * dir);
         GameObject rail = Block("Handrail", s, new Vector3(startX + dir * run * 0.5f, UpperFloor * 0.5f + 0.95f, z1 - 0.04f), 0f, new Vector3(len, 0.06f, 0.06f), p.trim, false);
         rail.transform.rotation = manor.rotation * Quaternion.Euler(0f, 0f, slope * dir);
         GameObject stop = Block("RailStop", s, new Vector3(startX + dir * run * 0.5f, UpperFloor * 0.5f + 0.6f, z1 + 0.04f), 0f, new Vector3(run, UpperFloor + 1.2f, 0.06f), p.trim, true);
@@ -561,15 +758,18 @@ public static class LunaManor
         {
             GalleryWest, GalleryNorth, GalleryEast, Solteiro1, Solteiro2, Gerador1, Banheiro1, Casal1, SacadaPassage, Casal2, Banheiro2, Gerador2, Solteiro3, QuartoAlex,
         };
-        Material[] floors = { p.terracotta, p.terracotta, p.terracotta, p.woodFloor, p.woodFloor, p.concrete, p.bathFloor, p.floor, p.floor, p.floor, p.bathFloor, p.concrete, p.woodFloor, p.woodFloor };
+        // The galleries are the "varanda" of Dayse's drawings: plank floors.
+        Material veranda = Or(p.hallFloor, p.woodFloor);
+        Material[] floors = { veranda, veranda, veranda, p.woodFloor, p.woodFloor, p.concrete, p.bathFloor, p.floor, p.floor, p.floor, p.bathFloor, p.concrete, p.woodFloor, p.woodFloor };
         for (int i = 0; i < rooms.Length; i++)
         {
             Slab("Floor_" + i, u, Box(rooms[i]), SlabTop, UpperFloor, floors[i], p.ceiling, p.ceiling, true);
             if (rooms[i] == GalleryWest)
             {
-                // The ceiling with the attic hatch's hole.
+                // The ceiling over the outer half (the roof's eave; the inner half is open to the sky), with the attic
+                // hatch's hole.
                 Rect hole = R(HatchHinge.x - HatchSize * 0.5f, HatchHinge.y - HatchSize - 0.02f, HatchHinge.x + HatchSize * 0.5f, HatchHinge.y - 0.02f);
-                Rect gw = GalleryWest;
+                Rect gw = R(GalleryWest.xMin, GalleryWest.yMin, VerandaRoofW, GalleryWest.yMax);
                 Slab("Ceiling_W_S", u, Box(R(gw.xMin, gw.yMin, gw.xMax, hole.yMin)), UpperCeiling, AtticFloor, p.floor, p.ceiling, p.ceiling, true);
                 Slab("Ceiling_W_N", u, Box(R(gw.xMin, hole.yMax, gw.xMax, gw.yMax)), UpperCeiling, AtticFloor, p.floor, p.ceiling, p.ceiling, true);
                 Slab("Ceiling_W_W", u, Box(R(gw.xMin, hole.yMin, hole.xMin, hole.yMax)), UpperCeiling, AtticFloor, p.floor, p.ceiling, p.ceiling, true);
@@ -577,7 +777,17 @@ public static class LunaManor
                 continue;
             }
 
-            Slab("Ceiling_" + i, u, Box(rooms[i]), UpperCeiling, AtticFloor, p.floor, p.ceiling, p.ceiling, true);
+            Rect ceiling = rooms[i];
+            if (rooms[i] == GalleryNorth)
+            {
+                ceiling = R(ceiling.xMin, VerandaRoofN, ceiling.xMax, ceiling.yMax);
+            }
+            else if (rooms[i] == GalleryEast)
+            {
+                ceiling = R(VerandaRoofE, ceiling.yMin, ceiling.xMax, ceiling.yMax);
+            }
+
+            Slab("Ceiling_" + i, u, Box(ceiling), UpperCeiling, AtticFloor, p.floor, p.ceiling, p.ceiling, true);
         }
 
         // Outer walls of the U (the corners of the bathrooms cut off, as drawn).
@@ -593,8 +803,10 @@ public static class LunaManor
             Hole.Window(V(15f, 20.4f), 0.8f, w), Hole.Window(V(15f, 16.8f), 1.2f, w), Hole.Window(V(15f, 11.6f), 1.2f, w),
             Hole.Grid(V(-12.2f, 8.9f), 2.6f, w - 0.2f, w + 1.5f, 4, 3), Hole.Grid(V(12.7f, 8.9f), 2.6f, w - 0.2f, w + 1.5f, 4, 3));
 
-        // The parapet on the gallery's courtyard side ("mureta de segurança"), open where the stairs arrive.
-        Walls("Mureta", u, new[] { V(-7.5f, 10.25f), V(-7.5f, 19.2f), V(7.9f, 19.2f), V(7.9f, 10.25f) }, false, SlabTop, UpperFloor + 1f, 0.16f, p.stone, p.stone);
+        // The rail on the gallery's courtyard side ("mureta vazada" in the plan, slats in the elevations), open where
+        // the stairs arrive: the corner stairs at the south ends, the grand stair in the middle of the north side.
+        Balustrade(u, new[] { V(-7.5f, 10.25f), V(-7.5f, 19.2f), V(GrandStairX0 - 0.14f, 19.2f) });
+        Balustrade(u, new[] { V(GrandStairX1 + 0.14f, 19.2f), V(7.9f, 19.2f), V(7.9f, 10.25f) });
 
         // The balcony on the vestibule's roof: the half-round outside the north wall, with an openwork rail.
         List<Vector2> cap = NorthCap();
@@ -622,22 +834,22 @@ public static class LunaManor
 
         // Partitions and doors.
         Walls("West_Gallery", u, new[] { V(-10f, 8.9f), V(-10f, 21.6f) }, false, SlabTop, UpperCeiling, Int, null, null,
-            Hole.Door(V(-10f, 11.6f), 0.9f, UpperFloor + 2.1f, true, SlabTop), Hole.Door(V(-10f, 16.8f), 0.9f, UpperFloor + 2.1f, true, SlabTop),
-            Hole.Door(Gerador1Door, 0.9f, UpperFloor + 2.1f, false, SlabTop));
+            Hole.Door(V(-10f, 11.6f), 1f, UpperFloor + 2.1f, true, SlabTop), Hole.Door(V(-10f, 16.8f), 1f, UpperFloor + 2.1f, true, SlabTop),
+            Hole.Door(Gerador1Door, 1f, UpperFloor + 2.1f, false, SlabTop));
         Walls("West_14", u, new[] { V(-14.4f, 14.4f), V(-10f, 14.4f) }, false, SlabTop, UpperCeiling, Int, null, null);
         Walls("West_19", u, new[] { V(-14.4f, 19.2f), V(-10f, 19.2f) }, false, SlabTop, UpperCeiling, Int, null, null);
         Walls("North_Gallery", u, new[] { V(-14.4f, 21.6f), V(15f, 21.6f) }, false, SlabTop, UpperCeiling, Int, null, null,
-            Hole.Door(V(-8.8f, 21.6f), 0.9f, UpperFloor + 2.1f, true, SlabTop), Hole.Door(V(-5f, 21.6f), 0.9f, UpperFloor + 2.1f, true, SlabTop),
-            Hole.Open(V(0.1f, 21.6f), 2.4f, SlabTop, UpperFloor + 2.5f), Hole.Door(V(5.3f, 21.6f), 0.9f, UpperFloor + 2.1f, true, SlabTop),
-            Hole.Door(V(8.9f, 21.6f), 0.9f, UpperFloor + 2.1f, true, SlabTop));
+            Hole.Door(V(-8.8f, 21.6f), 1f, UpperFloor + 2.1f, true, SlabTop), Hole.Door(V(-5f, 21.6f), 1f, UpperFloor + 2.1f, true, SlabTop),
+            Hole.Open(V(0.1f, 21.6f), 2.4f, SlabTop, UpperFloor + 2.5f), Hole.Door(V(5.3f, 21.6f), 1f, UpperFloor + 2.1f, true, SlabTop),
+            Hole.Door(V(8.9f, 21.6f), 1f, UpperFloor + 2.1f, true, SlabTop));
         foreach (float x in new[] { -7.5f, -2.6f, 2.8f, 7.9f })
         {
             Walls("North_" + x, u, new[] { V(x, 21.6f), V(x, 24.6f) }, false, SlabTop, UpperCeiling, Int, null, null);
         }
 
         Walls("East_Gallery", u, new[] { V(10.4f, 8.9f), V(10.4f, 21.6f) }, false, SlabTop, UpperCeiling, Int, null, null,
-            Hole.Door(AlexDoor, 0.9f, UpperFloor + 2.1f, false, SlabTop), Hole.Door(V(10.4f, 16.8f), 0.9f, UpperFloor + 2.1f, true, SlabTop),
-            Hole.Door(Gerador2Door, 0.9f, UpperFloor + 2.1f, false, SlabTop));
+            Hole.Door(AlexDoor, 1f, UpperFloor + 2.1f, false, SlabTop), Hole.Door(V(10.4f, 16.8f), 1f, UpperFloor + 2.1f, true, SlabTop),
+            Hole.Door(Gerador2Door, 1f, UpperFloor + 2.1f, false, SlabTop));
         Walls("East_14", u, new[] { V(10.4f, 14.4f), V(15f, 14.4f) }, false, SlabTop, UpperCeiling, Int, null, null);
         Walls("East_19", u, new[] { V(10.4f, 19.2f), V(15f, 19.2f) }, false, SlabTop, UpperCeiling, Int, null, null);
 
@@ -677,10 +889,19 @@ public static class LunaManor
         // the side wings run into the north wing's slopes at its ridge line. The west wing is the attic (walkable, its
         // south hip steep so that the attic keeps its headroom where the suit stands) closed at z 19.2 by a wall.
         float ridge = AtticFloor + 2.8f, eave = AtticFloor + 0.5f;
-        HipRoof("Attic", r, R(-14.55f, 8.75f, -7.35f, 21.97f), true, eave, ridge, 1.6f, -1f, slate, true);
-        Knees("AtticKnees", r, R(-14.55f, 8.75f, -7.35f, 19.2f), AtticFloor, 0.5f, ridge);
-        HipRoof("EastWing", r, R(7.75f, 8.75f, 15.15f, 21.97f), true, eave, ridge, 2.4f, -1f, slate, false);
-        HipRoof("NorthWing", r, R(-14.55f, 19.2f, 15.15f, 24.75f), false, eave, ridge, 0f, 0f, slate, false);
+        // The wings stop over the galleries' outer half (VerandaRoof*, Dayse's "com telhado", 21/10); the side wings
+        // end at the north wing's ridge.
+        const float wall = 0.15f;
+        float northRidge = (VerandaRoofN - wall + 24.75f) * 0.5f;
+        HipRoof("Attic", r, R(-14.55f, 8.75f, VerandaRoofW + wall, northRidge), true, eave, ridge, 1.6f, -1f, slate, true);
+        Knees("AtticKnees", r, R(-14.55f, 8.75f, VerandaRoofW + wall, 19.2f), AtticFloor, 0.5f, ridge);
+        HipRoof("EastWing", r, R(VerandaRoofE - wall, 8.75f, 15.15f, northRidge), true, eave, ridge, 2.4f, -1f, slate, false);
+        HipRoof("NorthWing", r, R(-14.55f, VerandaRoofN - wall, 15.15f, 24.75f), false, eave, ridge, 0f, 0f, slate, false);
+        // Fascia boards closing the gap between the galleries' half ceiling and the eave above it.
+        float fh = eave - UpperCeiling;
+        Block("Fascia_E", r, new Vector3(VerandaRoofE + 0.03f, UpperCeiling + fh * 0.5f, (GalleryEast.yMin + GalleryEast.yMax) * 0.5f), 0f, new Vector3(0.06f, fh, GalleryEast.height), p.trim, false);
+        Block("Fascia_N", r, new Vector3((GalleryWest.xMax + GalleryEast.xMin) * 0.5f, UpperCeiling + fh * 0.5f, VerandaRoofN + 0.03f), 0f, new Vector3(GalleryEast.xMin - GalleryWest.xMax + 0.1f, fh, 0.06f), p.trim, false);
+        Block("Fascia_W", r, new Vector3(VerandaRoofW - 0.03f, UpperCeiling + fh * 0.5f, (19.2f + GalleryWest.yMax) * 0.5f), 0f, new Vector3(0.06f, fh, GalleryWest.yMax - 19.2f), p.trim, false);
 
         FrontRoofs(r, slate);
     }
@@ -741,7 +962,7 @@ public static class LunaManor
             {
                 verts.Add(q);
                 norms.Add(n);
-                uvs.Add(new Vector2(Vector3.Dot(q, along), Vector3.Dot(q, up)) / tt);
+                uvs.Add(new Vector2(Vector3.Dot(Sc(q), along), Vector3.Dot(Sc(q), up)) / tt);
             }
 
             // Unity's front face: normal = Cross(b - a, c - a), so (p0, pi, pi+1) faces up and out.
@@ -755,7 +976,7 @@ public static class LunaManor
             {
                 verts.Add(q + down);
                 norms.Add(-n);
-                uvs.Add(new Vector2(Vector3.Dot(q, along), Vector3.Dot(q, up)) / tb);
+                uvs.Add(new Vector2(Vector3.Dot(Sc(q), along), Vector3.Dot(Sc(q), up)) / tb);
             }
 
             for (int i = 1; i < pts.Length - 1; i++)
@@ -774,7 +995,7 @@ public static class LunaManor
             {
                 verts.Add(q);
                 norms.Add(outward);
-                uvs.Add(new Vector2(Vector3.Dot(q, (c - a).normalized), q.y) / 0.5f);
+                uvs.Add(new Vector2(Vector3.Dot(Sc(q), (c - a).normalized), q.y) / 0.5f);
             }
 
             edge.AddRange(new[] { s, s + 1, s + 2, s, s + 2, s + 3, s, s + 2, s + 1, s, s + 3, s + 2 });
@@ -1200,7 +1421,7 @@ public static class LunaManor
                 Vector3 corner = Vector3.Scale(n + u * su + v * sv, h);
                 verts.Add(corner);
                 norms.Add(n);
-                Vector3 world = centre + turn * corner;
+                Vector3 world = Sc(centre + turn * corner);
                 Vector3 wu = turn * u, wv = turn * v;
                 uvs.Add(new Vector2(Vector3.Dot(world, wu), Vector3.Dot(world, wv)) / tile);
             }
@@ -1234,6 +1455,83 @@ public static class LunaManor
             go.AddComponent<BoxCollider>();
         }
 
+        Static(go);
+        return go;
+    }
+
+    // A right-triangle prism in the wall's frame (x along the run, y up, z across), its right angle at (s, y) and its
+    // legs `cut` long toward sx (along the run) and sy (up or down): the solid corner of an octagonal window. Faces
+    // +z (left material) and -z (right) with the same world-planar UVs as Block, and the diagonal cut face.
+    private static GameObject CornerWedge(string name, Transform group, Vector2 a, Vector2 dir, float yaw, float s, float y, float sx, float sy, float cut, float thickness, Material left, Material right)
+    {
+        Vector2 c = a + dir * s;
+        Vector3 centre = new Vector3(c.x, y, c.y);
+        GameObject go = new GameObject(name);
+        go.transform.SetParent(group, false);
+        go.transform.position = manor.TransformPoint(centre);
+        go.transform.rotation = manor.rotation * Quaternion.Euler(0f, yaw, 0f);
+        Quaternion turn = Quaternion.Euler(0f, yaw, 0f);
+        float tl = Tile(left), tr = Tile(right);
+        float hz = thickness * 0.5f;
+        Vector3[] tri = { Vector3.zero, new Vector3(sx * cut, 0f, 0f), new Vector3(0f, sy * cut, 0f) };
+        List<Vector3> verts = new List<Vector3>();
+        List<Vector3> norms = new List<Vector3>();
+        List<Vector2> uvs = new List<Vector2>();
+        List<int> trisL = new List<int>(), trisR = new List<int>();
+        System.Action<Vector3[], Vector3, Vector3, Vector3, float, List<int>> face = (pts, n, u, v, tile, tris) =>
+        {
+            int start = verts.Count;
+            foreach (Vector3 pnt in pts)
+            {
+                verts.Add(pnt);
+                norms.Add(n);
+                Vector3 world = Sc(centre + turn * pnt);
+                uvs.Add(new Vector2(Vector3.Dot(world, turn * u), Vector3.Dot(world, turn * v)) / tile);
+            }
+
+            for (int i = 1; i + 1 < pts.Length; i++)
+            {
+                Vector3 cross = Vector3.Cross(pts[i] - pts[0], pts[i + 1] - pts[0]);
+                if (Vector3.Dot(cross, n) >= 0f) { tris.AddRange(new[] { start, start + i, start + i + 1 }); }
+                else { tris.AddRange(new[] { start, start + i + 1, start + i }); }
+            }
+        };
+        foreach (float sz in new[] { 1f, -1f })
+        {
+            Vector3 n = Vector3.forward * sz;
+            Vector3[] pts = { tri[0] + n * hz, tri[1] + n * hz, tri[2] + n * hz };
+            face(pts, n, Vector3.right * -sz, Vector3.up, sz > 0f ? tl : tr, sz > 0f ? trisL : trisR);
+        }
+
+        // The diagonal cut, facing the opening.
+        {
+            Vector3 n = new Vector3(sx, sy, 0f).normalized;
+            Vector3 along = (tri[2] - tri[1]).normalized;
+            Vector3[] pts = { tri[1] - Vector3.forward * hz, tri[2] - Vector3.forward * hz, tri[2] + Vector3.forward * hz, tri[1] + Vector3.forward * hz };
+            face(pts, n, along, Vector3.forward, tl, trisL);
+        }
+
+        Mesh mesh = new Mesh { name = name };
+        mesh.SetVertices(verts);
+        mesh.SetNormals(norms);
+        mesh.SetUVs(0, uvs);
+        bool two = left != right && trisR.Count > 0;
+        mesh.subMeshCount = two ? 2 : 1;
+        if (two)
+        {
+            mesh.SetTriangles(trisL, 0);
+            mesh.SetTriangles(trisR, 1);
+        }
+        else
+        {
+            trisL.AddRange(trisR);
+            mesh.SetTriangles(trisL, 0);
+        }
+
+        mesh.RecalculateTangents();
+        mesh.RecalculateBounds();
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterials = two ? new[] { left, right } : new[] { left };
         Static(go);
         return go;
     }
@@ -1434,7 +1732,7 @@ public static class LunaManor
             cursor = Mathf.Max(cursor, to);
             if ((o.interior || h.kind == 2) && h.at.x - h.width * 0.5f >= r0 - 0.01f && h.at.x + h.width * 0.5f <= r1 + 0.01f)
             {
-                Trim(group, name, a, dir, yaw, from, to, h, thickness);
+                Trim(group, name, a, dir, yaw, from, to, h, thickness, left, right);
             }
         }
 
@@ -1551,7 +1849,7 @@ public static class LunaManor
         float ys = -hy, yt = hy;
         System.Func<Vector3, Vector3, float, Vector2> uv = (local, n, tile) =>
         {
-            Vector3 world = centre + turn * local;
+            Vector3 world = Sc(centre + turn * local);
             Vector3 u = Mathf.Abs(n.z) > 0.5f ? Vector3.right * (n.z > 0f ? 1f : -1f) : Vector3.Cross(Vector3.up, n);
             Vector3 wu = turn * u, wv = Vector3.up;
             return new Vector2(Vector3.Dot(world, wu), Vector3.Dot(world, wv)) / tile;
@@ -1633,7 +1931,7 @@ public static class LunaManor
     }
 
     // The frame of a door or window, and the glass of a window.
-    private static void Trim(Transform group, string name, Vector2 a, Vector2 dir, float yaw, float from, float to, Hole h, float thickness)
+    private static void Trim(Transform group, string name, Vector2 a, Vector2 dir, float yaw, float from, float to, Hole h, float thickness, Material left = null, Material right = null)
     {
         if (!h.frame)
         {
@@ -1654,19 +1952,26 @@ public static class LunaManor
         {
             // The leaf, left open against the wall (95 degrees) on the side its hash picks: a house left in a hurry.
             float width = (to - from) - 2f * t;
-            if (width < 0.5f || width > 1.3f)
+            if (width < 0.5f || width > 1.4f)
             {
                 return;
             }
 
+            // The leaf hangs on the wall face it opens toward (a door is hinged at a face, not in the jamb's middle),
+            // on a pivot the Door component swings; it can be closed and opened again with E (22/10).
             float side = (Mathf.Abs(Mathf.Sin(from * 12.9898f + a.x * 78.233f)) > 0.5f) ? 1f : -1f;
             float angle = 95f * side;
             Vector2 hinge = a + dir * (from + t) + new Vector2(-dir.y, dir.x) * (side * thickness * 0.5f);
-            Quaternion swing = Quaternion.Euler(0f, yaw - angle, 0f);
-            Vector3 along = swing * Vector3.right;
-            Vector3 centre = new Vector3(hinge.x, (h.bottom + h.top - t) * 0.5f, hinge.y) + along * (width * 0.5f);
-            GameObject leaf = Block(name + "_Leaf", group, centre, yaw - angle, new Vector3(width, h.top - h.bottom - t - 0.01f, 0.045f), p.trim, true);
+            Transform pivot = Group(name + "_Door", group);
+            pivot.position = manor.TransformPoint(new Vector3(hinge.x, h.bottom, hinge.y));
+            Vector3 alongClosed = manor.rotation * (Quaternion.Euler(0f, yaw, 0f) * Vector3.right);
+            pivot.rotation = Quaternion.LookRotation(Vector3.Cross(alongClosed, Vector3.up), Vector3.up);
+            GameObject leaf = FloodedHouseBuilder.DoorLeaf(name + "_Leaf", pivot, width, h.top - h.bottom - t - 0.01f, 0.045f, p.trim);
             _ = leaf;
+            Door door = pivot.gameObject.AddComponent<Door>();
+            door.Configure(Door.Lock.None, null, null, null, null);
+            door.SetStartOpen(-angle);
+            pivot.localRotation *= Quaternion.Euler(0f, -angle, 0f);
             return;
         }
 
@@ -1712,8 +2017,12 @@ public static class LunaManor
             foreach ((float s, float y, float turn) in new[] { (from, h.top, 45f), (to, h.top, -45f), (from, h.bottom, -45f), (to, h.bottom, 45f) })
             {
                 Vector2 corner = a + dir * s;
-                GameObject wedge = Block(name + "_Cut", group, new Vector3(corner.x, y, corner.y), yaw, new Vector3(diagonal, diagonal, thickness), p.wall, false);
-                wedge.transform.rotation = manor.rotation * Quaternion.Euler(0f, yaw, 45f);
+                // A triangular prism exactly filling the corner, faced with the wall's own two materials and their
+                // world-planar UVs (it was a square turned 45 degrees in the facade's cream, the wall's full thickness:
+                // its faces fought the panelling at the same depth and showed as pale triangles round the window,
+                // Gustavo 22/10), a hair thinner than the wall so no face shares a plane with it.
+                CornerWedge(name + "_Cut", group, a, dir, yaw, s, y, s == from ? 1f : -1f, y == h.top ? -1f : 1f, cut, thickness - 0.006f, left ?? p.wall, right ?? p.wall);
+                _ = corner;
                 float sx = s + (s == from ? cut * 0.5f : -cut * 0.5f);
                 float sy = y + (y == h.top ? -cut * 0.5f : cut * 0.5f);
                 Vector2 mid = a + dir * sx;
@@ -1767,14 +2076,14 @@ public static class LunaManor
         {
             verts.Add(new Vector3(poly[i].x, y1, poly[i].y));
             norms.Add(Vector3.up);
-            uvs.Add(poly[i] / tt);
+            uvs.Add(poly[i] * K / tt);
         }
 
         for (int i = 0; i < n; i++)
         {
             verts.Add(new Vector3(poly[i].x, y0, poly[i].y));
             norms.Add(Vector3.down);
-            uvs.Add(poly[i] / tb);
+            uvs.Add(poly[i] * K / tb);
         }
 
         for (int i = 0; i < tri.Count; i += 3)
@@ -1801,10 +2110,10 @@ public static class LunaManor
                 norms.Add(normal);
             }
 
-            uvs.Add(new Vector2(run, y0) / ts);
-            uvs.Add(new Vector2(run + len, y0) / ts);
-            uvs.Add(new Vector2(run + len, y1) / ts);
-            uvs.Add(new Vector2(run, y1) / ts);
+            uvs.Add(new Vector2(run * K, y0) / ts);
+            uvs.Add(new Vector2((run + len) * K, y0) / ts);
+            uvs.Add(new Vector2((run + len) * K, y1) / ts);
+            uvs.Add(new Vector2(run * K, y1) / ts);
             run += len;
             tSide.AddRange(new[] { s, s + 2, s + 1, s, s + 3, s + 2 });
         }

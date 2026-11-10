@@ -18,22 +18,32 @@ using UnityEngine.Rendering;
 //    into the ground when they feel steps and bite whoever stands over them (AnemoneColony).
 public static partial class FloodedHouseBuilder
 {
-    private static Material sporeGlow, silk, egg, colony, anemone, contaminated, corrosive;
+    private static Material sporeGlow, sporeBubble, silk, egg, colony, anemone, contaminated, corrosive;
 
     private static void FloraMaterials()
     {
         string fungus = ProjectPaths.Textures + "/Fungus";
-        sporeGlow = Material("SporeGlow", Shader.Find("Universal Render Pipeline/Particles/Unlit"));
-        sporeGlow.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(fungus + "/SoftDot.png"));
-        sporeGlow.SetColor("_BaseColor", Color.white);
-        sporeGlow.SetFloat("_Surface", 1f);
-        sporeGlow.SetFloat("_Blend", 2f);
-        sporeGlow.SetFloat("_SrcBlend", (float)BlendMode.One);
-        sporeGlow.SetFloat("_DstBlend", (float)BlendMode.One);
-        sporeGlow.SetFloat("_ZWrite", 0f);
-        sporeGlow.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        // Horror/Spore (Art/Shaders/Spore.shader, 29/10): a hot core in a faint halo, twinkling, faded against walls
+        // and near the camera. Tint white here: the colour of each spore comes from its particle.
+        sporeGlow = Material("SporeGlow", Shader.Find("Horror/Spore"));
+        sporeGlow.SetColor("_Color", Color.white);
+        sporeGlow.SetFloat("_Intensity", 4.5f);
+        sporeGlow.SetFloat("_CoreSize", 0.2f);
+        sporeGlow.SetFloat("_HaloAmount", 0.42f);
+        sporeGlow.SetFloat("_HaloPower", 2.6f);
         sporeGlow.renderQueue = (int)RenderQueue.Transparent;
         EditorUtility.SetDirty(sporeGlow);
+        // The bubbles in the mushroom stems: same speck, less halo, a steadier glint.
+        sporeBubble = Material("SporeBubble", Shader.Find("Horror/Spore"));
+        sporeBubble.SetColor("_Color", Color.white);
+        sporeBubble.SetFloat("_Intensity", 1.8f);
+        sporeBubble.SetFloat("_HaloAmount", 0.12f);
+        sporeBubble.SetFloat("_Twinkle", 0.3f);
+        sporeBubble.SetFloat("_Flare", 0.4f);
+        sporeBubble.SetFloat("_SoftFade", 0.05f);
+        sporeBubble.SetVector("_NearFade", new Vector4(0.15f, 0.6f, 0f, 0f));
+        sporeBubble.renderQueue = (int)RenderQueue.Transparent;
+        EditorUtility.SetDirty(sporeBubble);
 
         silk = Material("FungusSilk", Shader.Find("Universal Render Pipeline/Lit"));
         silk.SetTexture("_BaseMap", AlphaTexture(fungus + "/FungusSilk.png"));
@@ -80,7 +90,9 @@ public static partial class FloodedHouseBuilder
     private static void BuildFlora(Transform parent, Transform player)
     {
         FloraMaterials();
+        SporeMaterials();
         Transform f = Group("Flora", parent);
+        SporeStir(player);
         Random.State saved = Random.state;
         Random.InitState(1311);
         GardenFlora(f);
@@ -88,7 +100,8 @@ public static partial class FloodedHouseBuilder
         SilkFungus(f, new Vector2(10.25f, 13.3f), new Vector2(1f, -1f));
         AnemoneWorms(f, M(-10.7f, 0f, 10.4f), 18, player);
         AnemoneWorms(f, M(-12.4f, 0f, 20.6f), 12, player);
-        AnemoneWorms(f, M(-11.0f, UF, 15.4f), 24, player);
+        // Away from the vanity against the south wall (it grew through it, audit 22/10).
+        AnemoneWorms(f, M(-12.6f, UF, 17.4f), 24, player);
         Random.state = saved;
     }
 
@@ -96,14 +109,23 @@ public static partial class FloodedHouseBuilder
 
     private static void GardenFlora(Transform parent)
     {
-        float y = LunaManor.GardenY;
+        float y = LunaManor.GardenFloor;
         Transform g = Group("GardenFlora", parent);
-        // The swamp tree in its pool of contaminated water, under a cloud of glowing spores.
-        Vector3 tree = M(0.6f, y, 15.4f);
+        // The swamp tree in its pool of contaminated water, under a cloud of glowing spores. Off the axis from the glass
+        // door to the grand stair (29/10: the stair stands where it grew, and the drawing sees the stair from the door),
+        // its pool just over the flood.
+        Vector3 tree = M(4.4f, y, 13.3f);
         ModelProp("SwampTree", g, tree, Quaternion.Euler(0f, 20f, 0f));
-        GameObject pool = Primitive(PrimitiveType.Cylinder, "ContaminatedPool", g, tree + Vector3.up * 0.025f, Quaternion.identity, new Vector3(4.6f, 0.02f, 3.6f), contaminated);
+        GameObject pool = Primitive(PrimitiveType.Cylinder, "ContaminatedPool", g, tree + Vector3.up * 0.09f, Quaternion.identity, new Vector3(3.8f, 0.02f, 2.6f), contaminated);
         pool.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
-        Spores(g, tree + Vector3.up * 3.2f, new Vector3(5f, 4.5f, 5f), new Color(0.65f, 1f, 0.35f, 0.5f), 260);
+        // Spores drifting off the tree over the whole garden (lit specks), its faint glow round the crown (a continuous
+        // haze, not dots), flies over the pool (FloodedHouseSpores, 29/10).
+        Rect lawn = LunaManor.Garden;
+        Vector3 lawnA = M(lawn.xMin, y, lawn.yMin), lawnB = M(lawn.xMax, y, lawn.yMax);
+        SporeMotes(g, "Spores", new Vector3((lawnA.x + lawnB.x) * 0.5f, y + 2.6f, (lawnA.z + lawnB.z) * 0.5f), new Vector3(lawnB.x - lawnA.x, 5f, lawnB.z - lawnA.z), 2600, new Color(0.85f, 0.9f, 0.78f, 0.9f));
+        SporeMotes(g, "SporesTree", tree + Vector3.up * 2.8f, new Vector3(5f, 4f, 5f), 6000, new Color(0.8f, 0.95f, 0.75f, 1f));
+        BioHaze(g, "SporeGlow", tree + Vector3.up * 3.2f, new Vector3(4.5f, 3.2f, 4.5f), 14, new Color(0.25f, 0.85f, 0.7f, 0.045f));
+        PoolFlies(g, tree + Vector3.up * 0.55f);
 
         // The giant blue mushrooms: glowing caps, a halo on the ground, bubbles rising in the translucent stems.
         foreach ((Vector3 at, float yaw) in new[] { (M(-5.3f, y, 13.1f), 140f), (M(5.6f, y, 17.9f), -40f) })
@@ -121,7 +143,7 @@ public static partial class FloodedHouseBuilder
         }
 
         // The red palms, beating.
-        foreach ((Vector3 at, float yaw, float scale) in new[] { (M(4.4f, y, 12.5f), 200f, 1f), (M(-3.9f, y, 18.1f), 30f, 0.85f), (M(2.3f, UF, 25.4f), 160f, 0.55f) })
+        foreach ((Vector3 at, float yaw, float scale) in new[] { (M(-3.4f, y, 12.2f), 200f, 1f), (M(-3.9f, y, 18.1f), 30f, 0.85f), (M(2.3f, UF, 25.4f), 160f, 0.55f) })
         {
             GameObject palm = ModelProp("PulsePalm", g, at, Quaternion.Euler(0f, yaw, 0f));
             palm.transform.localScale *= scale;
@@ -149,39 +171,14 @@ public static partial class FloodedHouseBuilder
         s.rolloffMode = AudioRolloffMode.Linear;
     }
 
-    private static void Spores(Transform parent, Vector3 centre, Vector3 size, Color colour, int count)
+    // Position, colour, UV, then StableRandom.x and AgePercent into TEXCOORD0.zw (Horror/Spore reads them).
+    private static void SporeStreams(ParticleSystemRenderer renderer)
     {
-        GameObject go = new GameObject("Spores");
-        go.transform.SetParent(parent, false);
-        go.transform.position = centre;
-        ParticleSystem ps = go.AddComponent<ParticleSystem>();
-        ParticleSystem.MainModule main = ps.main;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(8f, 14f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0.01f, 0.05f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.03f, 0.12f);
-        main.startColor = colour;
-        main.maxParticles = count * 2;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.prewarm = true;
-        ParticleSystem.EmissionModule emission = ps.emission;
-        emission.rateOverTime = count / 11f;
-        ParticleSystem.ShapeModule shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Sphere;
-        shape.scale = size;
-        ParticleSystem.NoiseModule noise = ps.noise;
-        noise.enabled = true;
-        noise.strength = 0.12f;
-        noise.frequency = 0.15f;
-        // In clouds: the motes fade in and out over their life.
-        ParticleSystem.ColorOverLifetimeModule fade = ps.colorOverLifetime;
-        fade.enabled = true;
-        Gradient g = new Gradient();
-        g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.3f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
-        fade.color = g;
-        ParticleSystemRenderer renderer = go.GetComponent<ParticleSystemRenderer>();
-        renderer.sharedMaterial = sporeGlow;
-        renderer.shadowCastingMode = ShadowCastingMode.Off;
+        renderer.SetActiveVertexStreams(new List<ParticleSystemVertexStream>
+        {
+            ParticleSystemVertexStream.Position, ParticleSystemVertexStream.Color, ParticleSystemVertexStream.UV,
+            ParticleSystemVertexStream.StableRandomX, ParticleSystemVertexStream.AgePercent,
+        });
     }
 
     private static void Bubbles(Transform parent, Vector3 at)
@@ -193,8 +190,8 @@ public static partial class FloodedHouseBuilder
         ParticleSystem.MainModule main = ps.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(1.5f, 3.5f);
         main.startSpeed = new ParticleSystem.MinMaxCurve(0.25f, 0.5f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.01f, 0.03f);
-        main.startColor = new Color(0.6f, 0.85f, 1f, 0.6f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.025f);
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.55f, 0.85f, 1f, 0.7f), new Color(0.8f, 0.95f, 1f, 0.5f));
         main.maxParticles = 120;
         main.simulationSpace = ParticleSystemSimulationSpace.Local;
         ParticleSystem.EmissionModule emission = ps.emission;
@@ -203,9 +200,15 @@ public static partial class FloodedHouseBuilder
         shape.shapeType = ParticleSystemShapeType.Circle;
         shape.radius = 0.12f;
         shape.rotation = new Vector3(-90f, 0f, 0f);
+        // A bubble wobbles as it rises.
+        ParticleSystem.NoiseModule noise = ps.noise;
+        noise.enabled = true;
+        noise.strength = 0.06f;
+        noise.frequency = 2f;
         ParticleSystemRenderer renderer = go.GetComponent<ParticleSystemRenderer>();
-        renderer.sharedMaterial = sporeGlow;
+        renderer.sharedMaterial = sporeBubble;
         renderer.shadowCastingMode = ShadowCastingMode.Off;
+        SporeStreams(renderer);
     }
 
     private static void Halo(Transform parent, string material, Vector3 at, Vector3 normal, float size, Color colour)

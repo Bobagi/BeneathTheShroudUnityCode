@@ -26,6 +26,8 @@ public sealed class DemoPlaythrough : MonoBehaviour
 
     private const BindingFlags Any = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
+    public bool Done { get; private set; }
+
     public void Run(string outputFolder, bool fastPath)
     {
         folder = outputFolder;
@@ -223,5 +225,6 @@ public sealed class DemoPlaythrough : MonoBehaviour
         yield return new WaitForSecondsRealtime(1f);
         yield return Shot(index.ToString("00") + "_end_card");
         Note("done");
+        Done = true;
     }
 }

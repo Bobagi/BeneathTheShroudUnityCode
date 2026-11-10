@@ -55,6 +55,9 @@ public sealed class FirstPersonController : MonoBehaviour
 
     private CharacterController body;
     private Vector3 velocity;
+    private float eyeBase;
+    private float bobPhase;
+    private float bobWeight;
     private float pitch;
     private float joltPitch;
     private float joltYaw;
@@ -110,6 +113,7 @@ public sealed class FirstPersonController : MonoBehaviour
         standHeight = body.height;
         standCenterY = body.center.y;
         standEyeY = cameraPivot.localPosition.y;
+        eyeBase = standEyeY;
     }
 
     private void OnEnable()
@@ -129,6 +133,7 @@ public sealed class FirstPersonController : MonoBehaviour
         pitch = 0f;
         cameraPivot.localRotation = Quaternion.identity;
         cameraPivot.localPosition = new Vector3(cameraPivot.localPosition.x, standEyeY, cameraPivot.localPosition.z);
+        eyeBase = standEyeY;
         climbing = false;
     }
 
@@ -244,20 +249,48 @@ public sealed class FirstPersonController : MonoBehaviour
         body.center = new Vector3(0f, centerY, 0f);
         crouched = CurrentMode != Mode.Diving && height < standHeight - 0.01f;
 
-        // With a visible body the camera rides its head on land (PlayerBody); this only places it otherwise.
-        if (visualBody != null && visualBody.isActiveAndEnabled && (CurrentMode == Mode.Walking || CurrentMode == Mode.Wading))
-        {
-            return;
-        }
-
+        // The camera is the player (Gustavo, 22/10: "o foco é sempre a câmera"): it sits at a fixed eye height over
+        // the feet, dead still when the player is still, with its own small step bob when walking. The animated body
+        // follows the camera (PlayerBody) and never moves it; riding the body's head made the view wobble with the idle
+        // animation and lag the turn.
         float eyeTarget = crouched ? standEyeY - (standHeight - height) : standEyeY;
         Vector3 eye = cameraPivot.localPosition;
         float blend = 1f - Mathf.Exp(-12f * Time.deltaTime);
-        eye.y = Mathf.Lerp(eye.y, eyeTarget, blend);
+        eyeBase = Mathf.Lerp(eyeBase, eyeTarget, blend);
+        Vector2 bob = ViewBob(crouched);
+        eye.y = eyeBase + bob.y;
         // Back over the feet after riding the head through a sit.
-        eye.x = Mathf.Lerp(eye.x, 0f, blend);
+        eye.x = Mathf.Lerp(eye.x, bob.x, blend);
         eye.z = Mathf.Lerp(eye.z, 0f, blend);
         cameraPivot.localPosition = eye;
+    }
+
+    // The camera's step bob on land: a figure of eight (two vertical dips per sideways sway) advanced by the metres
+    // actually walked (GameTuning viewBobStride), faded in with the speed so it never moves when standing. Nothing of
+    // the body's animation reaches the camera.
+    private Vector2 ViewBob(bool crouchedNow)
+    {
+        GameTuning tuning = GameTuning.Instance;
+        bool onLand = (CurrentMode == Mode.Walking || CurrentMode == Mode.Wading) && body.isGrounded && !IsSeated && !climbing;
+        Vector3 flat = body.velocity;
+        flat.y = 0f;
+        float speed = onLand ? flat.magnitude : 0f;
+        float walking = Mathf.Clamp01((speed - 0.25f) / 0.6f);
+        bobWeight = Mathf.Lerp(bobWeight, walking, 1f - Mathf.Exp(-8f * Time.deltaTime));
+        if (bobWeight < 0.001f)
+        {
+            bobPhase = 0f;
+            return Vector2.zero;
+        }
+
+        bobPhase = Mathf.Repeat(bobPhase + speed * Time.deltaTime / Mathf.Max(0.3f, tuning.viewBobStride), 1f);
+        float sprint = Mathf.Lerp(1f, tuning.viewBobSprint, Mathf.Clamp01((speed - tuning.walkSpeed) / Mathf.Max(0.1f, tuning.runSpeed - tuning.walkSpeed)));
+        float scale = bobWeight * sprint * (crouchedNow ? 0.6f : 1f);
+        float a = bobPhase * Mathf.PI * 2f;
+        // Down at each footfall (twice per cycle), swaying once to each side per cycle.
+        float y = -Mathf.Abs(Mathf.Sin(a)) * tuning.viewBobAmplitude * scale;
+        float x = Mathf.Sin(a) * tuning.viewBobSideAmplitude * scale;
+        return new Vector2(x, y);
     }
 
     private bool Fits(float height, float centerY)

@@ -572,15 +572,14 @@ public sealed class PlayerBody : MonoBehaviour
         }
         else if (!InSitSequence)
         {
-            // Standing on the player's feet (dropped by the feet IK so both reach the floor); the camera goes to the
-            // eyes of the animated head at the height it would have WITHOUT that drop: the feet adapting to a step or
-            // a slope is only seen, never felt (Gustavo, 10/10).
+            // Standing on the player's feet (dropped by the feet IK so both reach the floor). The camera is NOT moved
+            // from here: it belongs to the controller (fixed eye height plus its own step bob). Riding the animated head
+            // made the view wobble with the idle animation when standing still (Gustavo, 22/10: the camera leads, the
+            // body only follows it).
             transform.rotation = Quaternion.Euler(0f, bodyYaw, 0f);
             Vector3 player = controller.transform.position;
             Vector3 target = new Vector3(player.x, player.y + hipsDrop, player.z);
             transform.position = Vector3.Lerp(transform.position, target, 1f - Mathf.Exp(-30f * dt));
-            Vector3 eyeTarget = EyePoint - Vector3.up * hipsDrop;
-            eye.position = Vector3.Lerp(eye.position, eyeTarget, 1f - Mathf.Exp(-GameTuning.Instance.headCameraFollow * dt));
         }
     }
 

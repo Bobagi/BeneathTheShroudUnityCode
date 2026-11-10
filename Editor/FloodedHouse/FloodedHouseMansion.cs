@@ -169,6 +169,13 @@ public static partial class FloodedHouseBuilder
         material.SetColor("_Color", colour * 0.22f);
         material.SetFloat("_Falloff", 2.4f);
         material.SetFloat("_Pulse", 0.3f);
+        // 29/10: most of the glow is light on the surface (SurfaceGlow "Spill"); the added haze stays for the clumps on
+        // the walls but is short for the Lumina colonies, whose wide halos read as teal clouds from the courtyard.
+        bool lumina = name.StartsWith("Lumina");
+        material.SetFloat("_Spill", lumina ? 10f : 6f);
+        material.SetFloat("_Haze", lumina ? 0.25f : 0.8f);
+        material.SetFloat("_HazeNear", lumina ? 2.5f : 5f);
+        material.SetFloat("_HazeFar", lumina ? 8f : 16f);
         EditorUtility.SetDirty(material);
         return material;
     }

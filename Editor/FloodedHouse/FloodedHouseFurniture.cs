@@ -39,7 +39,7 @@ public static partial class FloodedHouseBuilder
         // ---------------- dining room
         Against(f, "GothicCabinet", V2(-9.7f, 8.9f), Vector2.down, 0f);
         GameObject commode = Against(f, "Commode", V2(-5.7f, 8.9f), Vector2.down, 0f);
-        GameObject bottles = On(f, "WineBottles", commode, 0.2f);
+        GameObject bottles = On(f, "WineBottles", commode, 0.42f);
         // The optimiser's bake makes see-through glass opaque and pale: tinted back to dark old glass, dusty.
         if (bottles != null)
         {
@@ -47,7 +47,7 @@ public static partial class FloodedHouseBuilder
             glassBottles.SetColor("_BaseColor", new Color(0.32f, 0.26f, 0.2f));
             EditorUtility.SetDirty(glassBottles);
         }
-        On(f, "Candleholders", commode, -0.35f);
+        On(f, "Candleholders", commode, -0.38f);
         // Dayse's old Persian carpet under the dining table (Sketchfab, Mehdi Shahsavan, CC BY), 4 m along the table.
         Floor(f, "PersianCarpet", V2(-7.8f, 5.8f), 90f, 0f);
         Curtains(f, -7.8f, 1.9f, 2.6f, 0f);
@@ -73,16 +73,18 @@ public static partial class FloodedHouseBuilder
         Model(f, "FloorLamp1920", V2(10.3f, 8.4f), 0f, 0f);
 
         // ---------------- kitchen: units along the north wall, the fridge, the table
-        float back = 16f - WallHalf;
-        Model(f, "KitchenSink", V2(-16.2f, back - 0.31f), 180f, 0f);
+        // The units are 1 m wide side by side on the north wall: laid out in metres from the wall's face, not in plan
+        // units (under the plan scale a plan step of 1 left 25 cm gaps between them).
+        Vector3 unitsAt = M(V2(-16.2f, 16f), 0f) + Vector3.back * (WallHalf * PlanScale);
+        ModelProp("KitchenSink", f, unitsAt + Vector3.back * 0.31f, Quaternion.Euler(0f, 180f, 0f));
         for (int i = 0; i < 4; i++)
         {
-            Model(f, "KitchenBase", V2(-15.2f + i, back - 0.31f), 180f, 0f);
+            ModelProp("KitchenBase", f, unitsAt + new Vector3(1f + i, 0f, -0.31f), Quaternion.Euler(0f, 180f, 0f));
         }
 
         for (int i = 0; i < 5; i++)
         {
-            Model(f, "KitchenWall", V2(-16.2f + i, back - 0.17f), 180f, 1.5f);
+            ModelProp("KitchenWall", f, unitsAt + new Vector3(i, 1.5f, -0.17f), Quaternion.Euler(0f, 180f, 0f));
         }
 
         // Dayse's old Soviet fridge (Sketchfab "Old Soviet Fridge MINSK 12E", Turbo, CC BY) in place of the placeholder.
@@ -96,13 +98,14 @@ public static partial class FloodedHouseBuilder
         if (kitchenTable != null)
         {
             kitchenTable.transform.localScale *= 0.9f;
-            ModelProp("Jug", f, M(V2(-15.85f, 8.2f), kitchenTableTop), Quaternion.identity, false);
-            ModelProp("BrassPan", f, M(V2(-14.9f, 8.4f), kitchenTableTop), Quaternion.Euler(0f, 60f, 0f), false);
+            // The set's box top is the chair backs, so the table top is given by hand: measured 8 cm higher than the first guess (22/10).
+            ModelProp("Jug", f, M(V2(-15.85f, 8.2f), kitchenTableTop + 0.08f), Quaternion.identity, false);
+            ModelProp("BrassPan", f, M(V2(-14.9f, 8.4f), kitchenTableTop + 0.08f), Quaternion.Euler(0f, 60f, 0f), false);
         }
 
         Model(f, "EnamelPot", V2(-17.3f, 15.5f), 30f, 1.0f);
         Model(f, "CuttingBoard", V2(-13.6f, 15.5f), 10f, 0.92f);
-        Model(f, "Kettle", V2(-12.6f, 15.5f), 200f, 0.92f);
+        Model(f, "Kettle", V2(-12.95f, 15.5f), 200f, 0.92f);
         // The house's cooling (GDD: fitted against the heat): a ceiling cassette over the kitchen (Sketchfab, Mehdi
         // Shahsavan, CC BY), its grille flush with the ceiling and its box up in the slab.
         // The model has its grille on top and the box below: turned over, grille 4 cm under the ceiling.
@@ -179,10 +182,7 @@ public static partial class FloodedHouseBuilder
         // ---------------- the courtyard's gallery and garden
         Against(f, "Bench", V2(-9.7f, 17.4f), Vector2.right, 0f);
         Against(f, "Bench", V2(10.1f, 17.4f), Vector2.left, 0f);
-        foreach (Vector2 at in new[] { V2(-6.6f, 12.3f), V2(7f, 12.3f), V2(-6.6f, 18.3f), V2(7f, 18.3f) })
-        {
-            Model(f, "PlanterBox", at, 0f, LunaManor.GardenY);
-        }
+        // No planters in the garden since 29/10: Dayse's "Varanda" drawings show the lawn bare and flooded.
 
         // ---------------- outside: the refrigeration system the house was fitted with against the heat (GDD), its
         // condenser on the kitchen's west wall between the windows
@@ -235,6 +235,8 @@ public static partial class FloodedHouseBuilder
         // One-sided mesh whose cork faces its own -Z: turned about its centre so the cork faces the room (16/10, only the
         // outline showed before).
         cork.transform.RotateAround(RendererBounds(cork).center, Vector3.up, 180f);
+        // Grown to 1.5 m and filled (10/11): clippings of years 0 to 10, photos, the map, Alex's notes, red string.
+        AlexBoard(f, cork, V2(LunaManor.QuartoAlex.xMax, 13.3f), Vector2.left, UF + 1.5f);
         // Generator room 2: the armoured cabinet on the south wall (Ray Ferric, CC BY).
         Against(f, "ArmoredCabinet", V2(13.2f, LunaManor.Gerador2.yMin), Vector2.up, UF);
         Carpet(f, rug, V2(-5f, 23.1f), new Vector2(2.4f, 2.2f), 0f, UF);
@@ -242,8 +244,9 @@ public static partial class FloodedHouseBuilder
         Curtains(f, 5.3f, 24.6f, 1.2f, UF, true);
         Against(f, "Suitcases", V2(0.1f, 21.6f), Vector2.up, UF);
         // Ceiling fans over the beds (the climate went hot: Poly Haven ceiling_fan), a vase and a photo on the commode.
-        Ceiling(f, "CeilingFan", LunaManor.Casal1.center, UC);
-        Ceiling(f, "CeilingFan", LunaManor.Casal2.center, UC);
+        // Over the bed, north of the room's pendant (at the centre they shared one point, audit 22/10).
+        Ceiling(f, "CeilingFan", LunaManor.Casal1.center + new Vector2(0f, 1.05f), UC);
+        Ceiling(f, "CeilingFan", LunaManor.Casal2.center + new Vector2(0f, 1.05f), UC);
         // and a split unit over each bed's head (Sketchfab "Air Conditioner", jexxuwu, CC BY).
         Hung(f, "SplitAC", V2(-7.5f, 23.1f), Vector2.right, UF + 2.3f);
         Hung(f, "SplitAC", V2(7.9f, 23.1f), Vector2.left, UF + 2.3f);
@@ -264,6 +267,8 @@ public static partial class FloodedHouseBuilder
         Against(f, "Bench", V2(-10f, 18.2f), Vector2.right, UF);
 
         WaterStains(f);
+        // The house left to the damp: grime, leaves, papers, fallen plaster, chairs knocked over (29/10).
+        Abandon(parent, f);
     }
 
     // A single bedroom: the day bed along the far wall, a nightstand, a wardrobe in the near corner, a rug.
@@ -315,7 +320,8 @@ public static partial class FloodedHouseBuilder
         Vector3 inward = new Vector3(into.x, 0f, into.y);
         float backExtent = Mathf.Abs(Vector3.Dot(b.extents, new Vector3(Mathf.Abs(inward.x), 0f, Mathf.Abs(inward.z))));
         float centreOffset = Vector3.Dot(b.center - m.transform.position, inward);
-        m.transform.position += inward * (WallHalf + 0.03f + backExtent - centreOffset);
+        // The wall grew with the plan scale: its face is WallHalf x PlanScale from the centre line.
+        m.transform.position += inward * (WallHalf * PlanScale + 0.03f + backExtent - centreOffset);
         return m;
     }
 

@@ -1,13 +1,12 @@
 using System.Collections;
-using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 // Which scene comes after which: the main menu opens the game; "Jogar" plays the opening cutscene (Arrival,
 // skippable) and goes on to the house when it ends; "Continuar" goes straight to the house and rebuilds the last
-// checkpoint; the pause menu and the end card go back to the menu. Every change fades to black, loads in the
-// background with a small "Carregando" in the corner, and fades back in. Scene names here only.
+// checkpoint; the pause menu and the end card go back to the menu. Every change fades to black, shows the loading
+// screen (LoadingScreen: a still of the house and the cassette whose reels turn), loads in the background, warms up
+// the graphics pipeline states (GraphicsStateWarmup) and fades back in. Scene names here only.
 public static class SceneFlow
 {
     public const string MainMenuScene = "MainMenu";
@@ -100,8 +99,7 @@ public static class SceneFlow
     {
         private const float FadeSeconds = 0.9f;
 
-        private CanvasGroup group;
-        private TextMeshProUGUI label;
+        private LoadingScreen screen;
         private bool busy;
 
         public bool Busy => busy;
@@ -117,69 +115,73 @@ public static class SceneFlow
         private IEnumerator Run(string scene)
         {
             busy = true;
-            Build();
-            group.blocksRaycasts = true;
-            label.text = Loc.T("flow.loading");
-            float startVolume = AudioListener.volume;
-            for (float t = group.alpha; t < 1f; t += Time.unscaledDeltaTime / FadeSeconds)
+            if (screen == null)
             {
-                group.alpha = t;
+                screen = LoadingScreen.Create(gameObject);
+            }
+
+            screen.BlocksRaycasts = true;
+            screen.SetLabel(Loc.T("flow.loading"));
+            screen.Progress = 0f;
+            float startVolume = AudioListener.volume;
+            for (float t = screen.Alpha; t < 1f; t += Time.unscaledDeltaTime / FadeSeconds)
+            {
+                screen.Alpha = t;
                 AudioListener.volume = startVolume * (1f - t);
                 yield return null;
             }
 
-            group.alpha = 1f;
+            screen.Alpha = 1f;
             Time.timeScale = 1f;
             AudioListener.pause = false;
             SteamPresence.Loading();
+            // The scene's assets (0 to 0.7 of the bar), then the pipeline states compiled before the first frame is
+            // shown (GraphicsStateWarmup, 0.7 to 1): what used to stutter in the first minutes of play.
+            bool warm = GraphicsStateWarmup.Prepare();
+            float loadShare = warm ? 0.7f : 1f;
             AsyncOperation load = SceneManager.LoadSceneAsync(scene);
-            while (!load.isDone)
+            load.allowSceneActivation = false;
+            while (load.progress < 0.9f)
             {
-                // The label breathes while it loads, so a long load never looks frozen.
-                label.alpha = 0.45f + 0.35f * Mathf.Sin(Time.unscaledTime * 3f);
+                screen.Progress = Mathf.Clamp01(load.progress / 0.9f) * loadShare * 0.9f;
                 yield return null;
             }
 
+            load.allowSceneActivation = true;
+            while (!load.isDone)
+            {
+                yield return null;
+            }
+
+            screen.Progress = loadShare;
             // A frame for the new scene's Start (the director rebuilds a checkpoint there) before showing it.
             yield return null;
+            yield return null;
+            if (warm)
+            {
+                float t0 = Time.realtimeSinceStartup;
+                while (!GraphicsStateWarmup.Done && Time.realtimeSinceStartup - t0 < 40f)
+                {
+                    GraphicsStateWarmup.Step();
+                    screen.Progress = loadShare + (1f - loadShare) * GraphicsStateWarmup.Progress;
+                    yield return null;
+                }
+
+                Debug.Log("[PSO] warm-up " + GraphicsStateWarmup.Total + " states in " + (Time.realtimeSinceStartup - t0).ToString("F1") + " s");
+            }
+
+            screen.Progress = 1f;
             yield return null;
             AudioListener.volume = GameSettings.MasterVolume;
             for (float t = 1f; t > 0f; t -= Time.unscaledDeltaTime / FadeSeconds)
             {
-                group.alpha = t;
+                screen.Alpha = t;
                 yield return null;
             }
 
-            group.alpha = 0f;
-            group.blocksRaycasts = false;
+            screen.Alpha = 0f;
+            screen.BlocksRaycasts = false;
             busy = false;
-        }
-
-        private void Build()
-        {
-            if (group != null)
-            {
-                return;
-            }
-
-            Canvas canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 1000;
-            CanvasScaler scaler = gameObject.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
-            group = gameObject.AddComponent<CanvasGroup>();
-            group.alpha = 0f;
-
-            Image black = HudFactory.Image("Black", transform, HudSprites.Square, Color.black);
-            HudFactory.Stretch(black.rectTransform);
-            black.raycastTarget = true;
-            label = HudFactory.Label("Loading", transform, 26f, TextAlignmentOptions.BottomRight, HudFactory.MutedInk);
-            label.rectTransform.anchorMin = label.rectTransform.anchorMax = label.rectTransform.pivot = new Vector2(1f, 0f);
-            label.rectTransform.anchoredPosition = new Vector2(-64f, 48f);
-            label.rectTransform.sizeDelta = new Vector2(600f, 60f);
-            label.characterSpacing = 12f;
         }
     }
 }

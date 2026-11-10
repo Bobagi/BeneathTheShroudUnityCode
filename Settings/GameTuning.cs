@@ -124,9 +124,20 @@ public sealed class GameTuning : ScriptableObject
     [Tooltip("Frenagem ao soltar as teclas (m/s por segundo). Menor = para mais devagar.")]
     [Range(2f, 40f)] public float walkDeceleration = 12f;
 
+    [Header("Câmera em primeira pessoa (a câmera manda; o corpo só a segue, nunca o contrário)")]
+    [Tooltip("Balanço vertical da câmera ao andar (metros no pico). 0 = câmera fixa na altura do olho. Parado, a câmera nunca se mexe.")]
+    [Range(0f, 0.05f)] public float viewBobAmplitude = 0.012f;
+
+    [Tooltip("Balanço lateral da câmera ao andar (metros no pico), metade da frequência do vertical.")]
+    [Range(0f, 0.03f)] public float viewBobSideAmplitude = 0.006f;
+
+    [Tooltip("Metros andados por ciclo completo do balanço (dois passos). Correndo o ciclo encurta sozinho pela velocidade.")]
+    [Range(0.8f, 3f)] public float viewBobStride = 1.5f;
+
+    [Tooltip("Quanto o balanço cresce correndo (multiplicador sobre a amplitude de andar).")]
+    [Range(1f, 3f)] public float viewBobSprint = 1.6f;
+
     [Header("Corpo do jogador")]
-    [Tooltip("Rapidez com que a câmera acompanha os olhos da cabeça animada em terra. Menor = menos balanço.")]
-    [Range(2f, 60f)] public float headCameraFollow = 18f;
 
     [Tooltip("Na água: quanto a cabeça do corpo fica atrás da câmera (metros). Em terra a câmera fica nos olhos.")]
     [Range(-0.1f, 0.5f)] public float bodyBehindEye = 0.15f;

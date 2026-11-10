@@ -22,10 +22,20 @@ public static partial class FloodedHouseBuilder
         Transform lights = Group("Lighting");
 
         Material source = AssetDatabase.LoadAssetAtPath<Material>(ProjectPaths.AllSkyFree + "/Overcast Low/AllSky_Overcast4_Low.mat");
-        Material sky = Material("StormSky", source.shader);
-        sky.CopyPropertiesFromMaterial(source);
+        // Skybox/6 Sided, the same six faces: the pack's Mobile/Skybox has no tint or exposure, so the night sky drew at
+        // full brightness and the windows of the dark house burned white (29/10).
+        Material sky = Material("StormSky", Shader.Find("Skybox/6 Sided"));
+        foreach (string face in new[] { "_FrontTex", "_BackTex", "_LeftTex", "_RightTex", "_UpTex", "_DownTex" })
+        {
+            if (source.HasProperty(face))
+            {
+                sky.SetTexture(face, source.GetTexture(face));
+            }
+        }
+
+        // Skybox/6 Sided: colour = face x tint x 2 x exposure; a storm night about 0.07 of white.
         sky.SetColor("_Tint", new Color(0.17f, 0.2f, 0.23f));
-        sky.SetFloat("_Exposure", 0.045f);
+        sky.SetFloat("_Exposure", 0.35f);
         sky.SetFloat("_Rotation", 40f);
         EditorUtility.SetDirty(sky);
         RenderSettings.skybox = sky;
@@ -461,7 +471,8 @@ public static partial class FloodedHouseBuilder
         player.transform.SetPositionAndRotation(spawn.position, spawn.rotation);
         CharacterController body = player.AddComponent<CharacterController>();
         body.height = 1.75f;
-        body.radius = 0.3f;
+        // 0.27 (was 0.3): with 0.3 a 1 m door left 8 cm a side and the house felt cramped (Gustavo 22/10).
+        body.radius = 0.27f;
         body.center = new Vector3(0f, 0.875f, 0f);
         body.stepOffset = 0.35f;
         body.slopeLimit = 50f;

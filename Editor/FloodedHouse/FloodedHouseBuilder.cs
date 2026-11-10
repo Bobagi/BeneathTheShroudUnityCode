@@ -613,6 +613,45 @@ public static partial class FloodedHouseBuilder
         return model;
     }
 
+    // The leaf of an interior door: the Sketchfab wooden door (Props/WoodenDoor, Gustavo 22/10: the downloaded doors
+    // were unused and every door was a painted slab) scaled to the opening and hung on `pivot`, whose +X runs along the
+    // closed leaf from the hinge and +Z is the front; a plain slab when the model is missing. The Door component on the
+    // pivot swings it. Returns the leaf object (with a fitted collider).
+    internal static GameObject DoorLeaf(string name, Transform pivot, float width, float height, float thickness, Material fallback, bool wooden = true)
+    {
+        const string model = "WoodenDoor";
+        string folder = ProjectPaths.PropModels + "/" + model;
+        GameObject asset = wooden ? AssetDatabase.LoadAssetAtPath<GameObject>(folder + "/" + model + ".fbx") : null;
+        if (asset == null)
+        {
+            GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            slab.name = name;
+            slab.transform.SetParent(pivot, false);
+            slab.transform.localPosition = new Vector3(width * 0.5f, height * 0.5f, 0f);
+            slab.transform.localScale = new Vector3(width, height, thickness);
+            slab.GetComponent<MeshRenderer>().sharedMaterial = fallback;
+            return slab;
+        }
+
+        GameObject leaf = ModelProp(model, pivot, pivot.position, pivot.rotation, false, false);
+        leaf.name = name;
+        // Measured in the pivot's frame: the hinge edge to x 0, the bottom to y 0, centred across.
+        Bounds b = RendererBounds(leaf);
+        Vector3 min = pivot.InverseTransformPoint(b.min), max = pivot.InverseTransformPoint(b.max);
+        Vector3 lo = Vector3.Min(min, max), hi = Vector3.Max(min, max);
+        float w = Mathf.Max(0.01f, hi.x - lo.x), h = Mathf.Max(0.01f, hi.y - lo.y);
+        Vector3 scale = leaf.transform.localScale;
+        leaf.transform.localScale = new Vector3(scale.x * width / w, scale.y * height / h, scale.z * Mathf.Clamp(width / w, 0.8f, 1.25f));
+        b = RendererBounds(leaf);
+        min = pivot.InverseTransformPoint(b.min);
+        max = pivot.InverseTransformPoint(b.max);
+        lo = Vector3.Min(min, max);
+        hi = Vector3.Max(min, max);
+        leaf.transform.localPosition += new Vector3(-lo.x, -lo.y, -(lo.z + hi.z) * 0.5f);
+        FitCollider(leaf);
+        return leaf;
+    }
+
     private static Bounds RendererBounds(GameObject target)
     {
         Renderer[] renderers = target.GetComponentsInChildren<Renderer>();

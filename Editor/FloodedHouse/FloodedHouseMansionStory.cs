@@ -193,7 +193,7 @@ public static partial class FloodedHouseBuilder
         // ---------------- 5. generator room 2, behind its keypad, in the spores
         Transform gen = Group("GeneratorRoom", s);
         Vector2 gd = LunaManor.Gerador2Door;
-        mansion.generatorDoor = MakeDoor("GeneratorDoor", gen, M(gd.x, UF, gd.y - 0.45f), M(gd.x - 0.05f, UF + 0.02f, gd.y - 0.43f), M(gd.x + 0.05f, UF + 2.08f, gd.y + 0.43f),
+        mansion.generatorDoor = MakeDoor("GeneratorDoor", gen, M(gd.x, UF, gd.y - 0.5f), M(gd.x - 0.05f, UF + 0.02f, gd.y - 0.48f), M(gd.x + 0.05f, UF + 2.08f, gd.y + 0.48f),
             rustyMetal, 100f, Door.Lock.Code, null, "2014", "story.code_hint", null, metalDoorOpen, metalBoltUnlock);
         KeypadBox(gen, M(gd.x - 0.13f, UF + 1.35f, gd.y + 0.75f));
         // Dayse's list (13/10): the main generator, the one with the problem (rusted), and the emergency one whose engine
@@ -494,7 +494,17 @@ public static partial class FloodedHouseBuilder
     {
         Transform pivot = Group(name, parent);
         pivot.position = hinge;
-        Box("Leaf", pivot, leafMin, leafMax, material);
+        // The leaf: the wooden door model (or a slab) hung on the pivot, +X along the closed leaf from the hinge.
+        Vector3 lo = Vector3.Min(leafMin, leafMax), hi = Vector3.Max(leafMin, leafMax);
+        Vector3 size = hi - lo;
+        Vector3 centre = (lo + hi) * 0.5f;
+        bool alongX = size.x >= size.z;
+        Vector3 along = alongX ? Vector3.right * Mathf.Sign(centre.x - hinge.x) : Vector3.forward * Mathf.Sign(centre.z - hinge.z);
+        pivot.rotation = Quaternion.LookRotation(Vector3.Cross(along, Vector3.up), Vector3.up);
+        float width = alongX ? size.x : size.z, thickness = alongX ? size.z : size.x;
+        // Only the painted wooden doors take the model; metal, titanium and the bookcase stay slabs of their own material.
+        GameObject leafGo = DoorLeaf("Leaf", pivot, width, size.y, thickness, material, material == doorPaint);
+        leafGo.transform.localPosition += Vector3.up * (lo.y - hinge.y);
         Door door = pivot.gameObject.AddComponent<Door>();
         door.Configure(lockType, keyItem, code, hint, lockedMessage ?? "msg.locked");
         SetField(door, "openAngle", openAngle);
@@ -757,34 +767,21 @@ public static partial class FloodedHouseBuilder
         }
     }
 
-    // The thick spores filling the east wing: big, slow, pale motes hanging in the air.
+    // The thick spores filling the east wing (29/10: FloodedHouseSpores): a dense cloud of lit specks the torch
+    // shows, and a pale haze hanging in it.
     private static void SporeHaze(Transform parent)
     {
-        GameObject go = new GameObject("SporeHaze");
-        go.transform.SetParent(parent, false);
         Bounds dense = DenseZone;
-        go.transform.position = new Vector3(dense.center.x, UF + 1.4f, dense.center.z);
-        ParticleSystem ps = go.AddComponent<ParticleSystem>();
-        ParticleSystem.MainModule main = ps.main;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(6f, 10f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0.02f, 0.08f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.01f, 0.03f);
-        main.startColor = new Color(0.8f, 0.95f, 0.6f, 0.7f);
-        main.maxParticles = 3600;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.prewarm = true;
-        ParticleSystem.EmissionModule emission = ps.emission;
-        emission.rateOverTime = 360f;
-        ParticleSystem.ShapeModule shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Box;
-        shape.scale = new Vector3(dense.size.x, 2.8f, dense.size.z);
-        ParticleSystem.NoiseModule noise = ps.noise;
-        noise.enabled = true;
-        noise.strength = 0.15f;
-        noise.frequency = 0.3f;
-        ParticleSystemRenderer renderer = go.GetComponent<ParticleSystemRenderer>();
-        renderer.sharedMaterial = particle;
-        renderer.shadowCastingMode = ShadowCastingMode.Off;
+        Vector3 centre = new Vector3(dense.center.x, UF + 1.4f, dense.center.z);
+        Vector3 size = new Vector3(dense.size.x, 2.8f, dense.size.z);
+        if (sporeMotes == null)
+        {
+            SporeMaterials();
+        }
+
+        // Thick enough to read as a danger at a glance (29/10: at 4500 specks and a 3% haze the wing looked clean).
+        SporeMotes(parent, "SporeHaze", centre, size, 12000, new Color(0.85f, 0.92f, 0.72f, 1f), 1.6f);
+        BioHaze(parent, "SporeHazeGlow", centre, size, 40, new Color(0.55f, 0.6f, 0.42f, 0.16f), true);
     }
 
     private static void WallWorms(Transform parent, Vector3 origin, Vector3 right, Vector2 size, Transform player)

@@ -21,6 +21,21 @@ public sealed class TunedLamp : MonoBehaviour
 
     public bool IsBounce => bounce;
 
+    // What the house's supply gives the fittings (PowerGrid: 1 on the mains, about a third on the emergency
+    // generator the player starts in the generator room).
+    public static float GridLevel { get; private set; } = 1f;
+
+    public static void ResetGridLevel() => GridLevel = 1f;
+
+    public static void SetGridLevel(float level)
+    {
+        GridLevel = level;
+        foreach (TunedLamp lamp in FindObjectsByType<TunedLamp>(FindObjectsInactive.Include))
+        {
+            lamp.Apply();
+        }
+    }
+
     public float Range => baseRange * GameTuning.Instance.lampRange;
 
     public void SetVisibility(float weight)
@@ -55,7 +70,7 @@ public sealed class TunedLamp : MonoBehaviour
     {
         GameTuning tuning = GameTuning.Instance;
         Light lamp = GetComponent<Light>();
-        float intensity = baseIntensity * tuning.lampBrightness * (bounce ? tuning.lampBounce * visibility : 1f);
+        float intensity = baseIntensity * tuning.lampBrightness * GridLevel * (bounce ? tuning.lampBounce * visibility : 1f);
         lamp.range = baseRange * tuning.lampRange;
         FlickerLight flicker = GetComponent<FlickerLight>();
         if (flicker != null && Application.isPlaying)

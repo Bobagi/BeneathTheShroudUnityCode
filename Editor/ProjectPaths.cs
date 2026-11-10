@@ -44,4 +44,6 @@ public static class ProjectPaths
 
     // Third party packs
     public const string AllSkyFree = "Assets/ThirdParty/AllSkyFree";
+    // All Nature VFX (GreenBugGames, free on the Asset Store): the flies over the courtyard pool.
+    public const string AllNatureVfx = "Assets/ThirdParty/GreenBugGames/All Nature VFX";
 }

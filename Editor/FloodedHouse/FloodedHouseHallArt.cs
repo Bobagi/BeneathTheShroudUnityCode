@@ -201,19 +201,25 @@ public static partial class FloodedHouseBuilder
     }
 
     // The frosted double door into the courtyard (the hall's half-round porch, its middle facet 2.4 m wide at z 9.853):
-    // two leaves of teal glass in thin brass frames, an H pull on each meeting stile, both sides. Each opens on its own
-    // (E), outward into the gallery.
+    // two leaves of teal glass in thin brass frames, an H pull on each meeting stile, both sides. The two leaves are
+    // linked (Door.Link): E on either swings both, outward into the gallery, and E again closes them (Gustavo, 22/10).
+    // They open 90 degrees, not more: the porch's side facets angle away right behind the jambs, and at 100 degrees
+    // the leaves cut through them.
     private static void CourtyardDoors(Transform parent)
     {
         const float facetZ = 9.853f, half = 1.08f, height = 2.43f, frame = 0.05f, thick = 0.045f;
+        // The leaves hang on the courtyard face of the 30 cm wall (a door is hinged at a wall face, not in the middle
+        // of the jamb): centred in the wall, the open leaf's first 15 cm stood inside the jamb ("atravessa a parede").
+        const float leafZ = facetZ + 0.15f - thick * 0.5f - 0.01f;
         AudioClip creak = DoorSound("glass_door_open") ?? DoorSound("door_creak_2");
+        Door left = null, right = null;
         foreach (float side in new[] { -1f, 1f })
         {
             Transform pivot = Group(side < 0f ? "CourtyardDoor_L" : "CourtyardDoor_R", parent);
-            pivot.position = M(side * half, 0f, facetZ);
+            pivot.position = M(side * half, 0f, leafZ + thick * 0.5f);
             float outer = side * half, inner = side * 0.006f;
             float x0 = Mathf.Min(outer, inner), x1 = Mathf.Max(outer, inner);
-            Vector3 A(float x, float y, float dz) => M(x, y, facetZ + dz);
+            Vector3 A(float x, float y, float dz) => M(x, y, leafZ + dz);
             // The glass (its collider is what the E finds), then the brass frame round it.
             Box("Glass", pivot, A(x0 + frame, frame, -0.008f), A(x1 - frame, height - frame, 0.008f), frostedGlass, true);
             Box("FrameBottom", pivot, A(x0, 0.01f, -thick * 0.5f), A(x1, 0.01f + frame * 2f, thick * 0.5f), hallBrass, false);
@@ -237,8 +243,21 @@ public static partial class FloodedHouseBuilder
             Door door = pivot.gameObject.AddComponent<Door>();
             door.Configure(Door.Lock.None, null, null, null, null);
             // Into the courtyard (+z): the left leaf turns one way, the right the other.
-            SetField(door, "openAngle", side < 0f ? -100f : 100f);
+            SetField(door, "openAngle", side < 0f ? -90f : 90f);
             DoorAudio(door, pivot.gameObject, creak, creak);
+            if (side < 0f)
+            {
+                left = door;
+            }
+            else
+            {
+                right = door;
+            }
+        }
+
+        if (left != null && right != null)
+        {
+            Door.Link(left, right);
         }
     }
 

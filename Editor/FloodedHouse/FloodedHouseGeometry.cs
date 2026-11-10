@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 // Walls, floors, stairs and water of the flooded house. Coordinates follow the layout comment in
@@ -205,13 +206,12 @@ public static partial class FloodedHouseBuilder
     {
         Transform outside = Group("Exterior");
         const float top = -0.3f, bottom = -2.9f;
-        // Island, in manor coordinates; the hole over the basement (its walls included).
+        // Island, in manor coordinates; open over the basement (its walls included: a scene rectangle, the basement does
+        // not move with the plan scale) and over the courtyard's sunken garden.
         Rect island = Rect.MinMaxRect(-30f, -14f, 34f, 44f);
-        Rect hole = Rect.MinMaxRect(9.95f, 13.55f, 18.65f, 20.27f);
-        Box("Ground_S", outside, M(island.xMin, bottom, island.yMin), M(island.xMax, top, hole.yMin), mud);
-        Box("Ground_N", outside, M(island.xMin, bottom, hole.yMax), M(island.xMax, top, island.yMax), mud);
-        Box("Ground_W", outside, M(island.xMin, bottom, hole.yMin), M(hole.xMin, top, hole.yMax), mud);
-        Box("Ground_E", outside, M(hole.xMax, bottom, hole.yMin), M(island.xMax, top, hole.yMax), mud);
+        Vector3 islandA = M(island.xMin, 0f, island.yMin), islandB = M(island.xMax, 0f, island.yMax);
+        Rect basementHole = Rect.MinMaxRect(9.95f + ManorOffset.x, 13.55f + ManorOffset.z, 18.65f + ManorOffset.x, 20.27f + ManorOffset.z);
+        GroundAround(outside, Rect.MinMaxRect(islandA.x, islandA.z, islandB.x, islandB.z), bottom, top, basementHole, MRect(LunaManor.Garden));
         // The vestibule's north door opens onto the island (the plan's road to the sea): an invisible rail at the
         // top of the bank keeps the player from walking off the edge into the sea (it is not water one can swim in).
         foreach ((Vector3 a, Vector3 b) in new[]
@@ -254,14 +254,69 @@ public static partial class FloodedHouseBuilder
         GameObject seaObject = new GameObject("Sea");
         seaObject.transform.SetParent(outside, false);
         seaObject.transform.position = new Vector3(0f, WaterLevel, 0f);
-        Vector3 islandMin = M(island.xMin - 0.5f, 0f, island.yMin - 0.5f);
-        seaObject.AddComponent<MeshFilter>().sharedMesh = SeaMesh(280f, 2f, new Rect(islandMin.x, islandMin.z, island.width + 1f, island.height + 1f));
+        seaObject.AddComponent<MeshFilter>().sharedMesh = SeaMesh(280f, 2f, Rect.MinMaxRect(islandA.x - 0.5f, islandA.z - 0.5f, islandB.x + 0.5f, islandB.z + 0.5f));
         MeshRenderer seaRenderer = seaObject.AddComponent<MeshRenderer>();
         seaRenderer.sharedMaterial = sea;
         seaRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         seaObject.AddComponent<SeaWaves>();
 
         BuildRain(outside);
+    }
+
+    // The island's mud crown as boxes covering `outer` (scene x/z) except the holes: the plane cut on every hole edge,
+    // the cells outside all holes merged along each row.
+    private static void GroundAround(Transform parent, Rect outer, float bottom, float top, params Rect[] holes)
+    {
+        List<float> xs = new List<float> { outer.xMin, outer.xMax }, zs = new List<float> { outer.yMin, outer.yMax };
+        foreach (Rect h in holes)
+        {
+            xs.Add(Mathf.Clamp(h.xMin, outer.xMin, outer.xMax));
+            xs.Add(Mathf.Clamp(h.xMax, outer.xMin, outer.xMax));
+            zs.Add(Mathf.Clamp(h.yMin, outer.yMin, outer.yMax));
+            zs.Add(Mathf.Clamp(h.yMax, outer.yMin, outer.yMax));
+        }
+
+        xs.Sort();
+        zs.Sort();
+        int n = 0;
+        for (int j = 0; j + 1 < zs.Count; j++)
+        {
+            if (zs[j + 1] - zs[j] < 0.001f)
+            {
+                continue;
+            }
+
+            float start = float.NaN;
+            for (int i = 0; i < xs.Count; i++)
+            {
+                // A cell [xs[i], xs[i + 1]] is solid when it lies outside every hole; past the last edge, flush the run.
+                bool solid = false;
+                if (i + 1 < xs.Count)
+                {
+                    if (xs[i + 1] - xs[i] < 0.001f)
+                    {
+                        continue;
+                    }
+
+                    Vector2 c = new Vector2((xs[i] + xs[i + 1]) * 0.5f, (zs[j] + zs[j + 1]) * 0.5f);
+                    solid = true;
+                    foreach (Rect h in holes)
+                    {
+                        solid &= !h.Contains(c);
+                    }
+                }
+
+                if (solid && float.IsNaN(start))
+                {
+                    start = xs[i];
+                }
+                else if (!solid && !float.IsNaN(start))
+                {
+                    Box("Ground_" + n++, parent, new Vector3(start, bottom, zs[j]), new Vector3(xs[i], top, zs[j + 1]), mud);
+                    start = float.NaN;
+                }
+            }
+        }
     }
 
     // Flat grid (size x size metres, one quad per cell) with a rectangular hole; the waves come from the

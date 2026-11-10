@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
 // The Luna mansion of Dayse's floor plan (GDD "Planta da Casa", 11/10) in the game scene: LunaManor builds it,
@@ -8,18 +9,36 @@ using UnityEngine;
 // the library.
 //
 // Local manor coordinates (LunaManor: front door at the origin, north +z) to the scene: M(x, y, z).
+//
+// Plan scale (29/10, Gustavo: "deixe os espaços maiores, tudo está muito apertado"): the plan is built PlanScale times
+// larger in x and z, heights unchanged (LunaManor carries it in the manor's transform; models keep their size). It
+// scales about the basement stair's corner in the laundry (LunaManor.StairX0, StairNorthZ), so that corner, the
+// basement, the sunken pantry and the lab under it stay where they were in the scene.
 public static partial class FloodedHouseBuilder
 {
+    public const float PlanScale = 1.25f;
+
+    // Where the plan's origin (the front door) lay at scale 1.
     private static readonly Vector3 ManorOffset = new Vector3(-16.32f, 0f, -18.92f);
 
-    private static Vector3 M(float x, float y, float z) => new Vector3(x, y, z) + ManorOffset;
+    private static readonly Vector2 PlanPivot = new Vector2(LunaManor.StairX0, LunaManor.StairNorthZ);
+
+    private static Vector3 M(float x, float y, float z) =>
+        new Vector3(PlanPivot.x + (x - PlanPivot.x) * PlanScale, y, PlanPivot.y + (z - PlanPivot.y) * PlanScale) + ManorOffset;
 
     private static Vector3 M(Vector2 at, float y) => M(at.x, y, at.y);
+
+    // The same for code outside the builder (HouseShots and the editor tools).
+    public static Vector3 PlanToWorld(Vector3 plan) => M(plan.x, plan.y, plan.z);
 
     // A local rectangle as world bounds between two heights.
     private static Bounds MZone(Rect r, float y0, float y1) => Zone(M(r.xMin, y0, r.yMin), M(r.xMax, y1, r.yMax));
 
-    private static Rect MRect(Rect r) => new Rect(r.x + ManorOffset.x, r.y + ManorOffset.z, r.width, r.height);
+    private static Rect MRect(Rect r)
+    {
+        Vector3 a = M(r.xMin, 0f, r.yMin), b = M(r.xMax, 0f, r.yMax);
+        return Rect.MinMaxRect(a.x, a.z, b.x, b.z);
+    }
 
     private const float UF = LunaManor.UpperFloor;
     private const float UC = LunaManor.UpperCeiling;
@@ -49,8 +68,19 @@ public static partial class FloodedHouseBuilder
             service = S("RoughPlaster"), roughConcrete = S("RoughConcrete"), roofFlat = S("RoughConcrete"),
             tiling = m => m != null && TileSizes.TryGetValue(m, out float t) ? t : 2f,
         };
+        palette.lawn = S("GardenGrass");
+        palette.pebbles = S("Pebbles");
         palette = WithHouseArt(palette);
-        LunaManor.Build(g, ManorOffset, palette, new LunaManor.Options { basementStairHole = true, frontDoorLeaf = true, footing = 0f, interior = true });
+        LunaManor.Build(g, M(0f, 0f, 0f), palette, new LunaManor.Options { basementStairHole = true, frontDoorLeaf = true, footing = 0f, interior = true, planScale = PlanScale });
+        // The interior doors LunaManor hung (Door on each leaf's pivot) get their sounds here.
+        AudioClip creakLeaf = DoorSound("door_creak_1") ?? DoorSound("door_creak_2");
+        foreach (Door door in g.GetComponentsInChildren<Door>(true))
+        {
+            if (door.GetComponent<AudioSource>() == null)
+            {
+                DoorAudio(door, door.gameObject, creakLeaf, creakLeaf);
+            }
+        }
 
         // The basement stair's enclosure in the laundry (scene coordinates, as the basement under it), with the
         // basement door: shut and locked (its key is in generator room 2).
@@ -65,7 +95,11 @@ public static partial class FloodedHouseBuilder
         // The front door, shut and swollen: the opening's carved double door (the same models Erick pushes in the
         // cutscene), with a blocker so nothing walks out; plain leaves if the models are missing.
         float half = LunaManor.FrontDoorWidth * 0.5f;
-        if (ArrivalCutsceneBuilder.FrontDoorModels(g, M(0f, 0f, 0f)))
+        // The door models fill the arch, which grew with the plan: they hang in a parent with the plan's scale.
+        Transform frontDoor = Group("FrontDoor", g);
+        frontDoor.position = M(0f, 0f, 0f);
+        frontDoor.localScale = new Vector3(PlanScale, 1f, PlanScale);
+        if (ArrivalCutsceneBuilder.FrontDoorModels(frontDoor, M(0f, 0f, 0f)))
         {
             GameObject stop = Box("FrontDoor_Stop", g, M(-half, 0f, -0.04f), M(half, LunaManor.FrontDoorHeight, 0.04f), doorPaint);
             stop.GetComponent<MeshRenderer>().enabled = false;
@@ -83,11 +117,11 @@ public static partial class FloodedHouseBuilder
     {
         Transform d = Group("LockedDoors", parent);
         // Doors in walls running along z: hinge on the south jamb, the leaf along z.
-        LockedAlongZ("PassageDoor", d, LunaManor.PassageDoor, 0.9f, 0f, 0.3f, "Trancada por dentro. Do outro lado, o corredor de serviço.", creak, rattle);
-        LockedAlongZ("Generator1Door", d, LunaManor.Gerador1Door, 0.9f, UF, 0.2f, "A porta da outra sala do gerador. Emperrada; algo pesado do lado de dentro.", creak, rattle);
-        LockedAlongZ("AlexDoor", d, LunaManor.AlexDoor, 0.9f, UF, 0.2f, "O quarto do Alex. Trancado.", creak, rattle);
+        LockedAlongZ("PassageDoor", d, LunaManor.PassageDoor, 1f, 0f, 0.3f, "Trancada por dentro. Do outro lado, o corredor de serviço.", creak, rattle);
+        LockedAlongZ("Generator1Door", d, LunaManor.Gerador1Door, 1f, UF, 0.2f, "A porta da outra sala do gerador. Emperrada; algo pesado do lado de dentro.", creak, rattle);
+        LockedAlongZ("AlexDoor", d, LunaManor.AlexDoor, 1f, UF, 0.2f, "O quarto do Alex. Trancado.", creak, rattle);
         // Along x: hinge on the west jamb.
-        LockedAlongX("HiddenDoor", d, LunaManor.HiddenDoor, 0.9f, 0f, 0.2f, wallpaper, "Uma estante pregada na parede... há uma fresta atrás dela. Não abre.", creak, rattle);
+        LockedAlongX("HiddenDoor", d, LunaManor.HiddenDoor, 1f, 0f, 0.2f, wallpaper, "Uma estante pregada na parede... há uma fresta atrás dela. Não abre.", creak, rattle);
         LockedAlongX("BunkerDoor", d, LunaManor.BunkerDoor, 1f, 0f, 0.3f, rustyMetal, "Porta de titânio. Sem fechadura deste lado.", creak, rattle);
     }
 
@@ -131,7 +165,8 @@ public static partial class FloodedHouseBuilder
         }
 
         // Upper floor: the galleries and the rooms the player can enter.
-        foreach (Vector2 at in new[] { V2(-8.75f, 11.5f), V2(-8.75f, 19.8f), V2(-4.5f, 20.4f), V2(0.1f, 20.4f), V2(5.4f, 20.4f), V2(9.15f, 17f) })
+        // Under the galleries' half ceiling (the inner half is open to the sky since 29/10).
+        foreach (Vector2 at in new[] { V2(-9.3f, 11.5f), V2(-9.3f, 19.8f), V2(-4.5f, 21f), V2(0.1f, 21f), V2(5.4f, 21f), V2(9.8f, 17f) })
         {
             Lamp(l, "UpperGalleryLamp", at, UC, 2.4f, 6f, false);
         }
@@ -180,10 +215,71 @@ public static partial class FloodedHouseBuilder
     private static void Garden(Transform parent, Transform player)
     {
         Transform g = Group("GardenFlora", parent);
-        float y = LunaManor.GardenY;
+        float y = LunaManor.GardenFloor;
         Backdrop(Prop("root_cluster_02", g, M(-6.2f, y, 18.4f), 30f, false, 1.4f)).name = "Roots";
+        FloodedLawn(g);
         BuildFlora(parent, player);
         WallWorms(parent, M(-19.34f, 0f, 11.5f), Vector3.back, new Vector2(3f, 2.4f), player);
         WallWorms(parent, M(-14.24f, 0f, 19.5f), Vector3.forward, new Vector2(2.4f, 2.4f), player);
+    }
+
+    // Dayse's "grama alagada do centro... pedregulhos nos cantos, tomados pela água" (21/10): a sheet of dark water a
+    // hand deep over the whole lawn (wading: splashes and wet steps, FirstPersonController), tufts of grass standing
+    // out of it, thicker along the edges, and none under the grand stair or in the paths to the doors.
+    private static void FloodedLawn(Transform parent)
+    {
+        Rect lawn = LunaManor.Garden;
+        const float inset = 0.35f, depth = 0.08f;
+        float surface = LunaManor.GardenFloor + depth;
+        Vector3 a = M(lawn.xMin + inset, 0f, lawn.yMin + inset), b = M(lawn.xMax - inset, 0f, lawn.yMax - inset);
+        Material flood = Transparent("GardenFlood", new Color(0.09f, 0.12f, 0.08f, 0.8f), 0.95f, AssetDatabase.LoadAssetAtPath<Texture2D>(ProjectPaths.Textures + "/WaterRipples/WaterRipples_Normal.png"));
+        GameObject sheet = WaterSurface("FloodWater", parent, a.x, b.x, a.z, b.z, surface, flood, 0.4f);
+        sheet.name = "FloodWater";
+        Volume("FloodVolume", parent, new Vector3(a.x, LunaManor.GardenFloor - 0.05f, a.z), new Vector3(b.x, surface, b.z), surface, false, 3f);
+
+        // The grass: the island's tuft (three crossed photo cards), low here (a lawn gone wild, 25 to 55 cm), merged
+        // into one mesh.
+        Mesh tuft = AssetDatabase.LoadAssetAtPath<Mesh>(ProjectPaths.Root + "/Cutscenes/GrassTuft.asset");
+        Material grass = AssetDatabase.LoadAssetAtPath<Material>(ProjectPaths.Art + "/Materials/Cutscenes/GrassTuft.mat");
+        if (tuft == null || grass == null)
+        {
+            return;
+        }
+
+        List<CombineInstance> parts = new List<CombineInstance>();
+        Random.State saved = Random.state;
+        Random.InitState(2110);
+        Rect stair = Rect.MinMaxRect(LunaManor.GrandStairX0 - 1.1f, LunaManor.GrandStairFootZ - 0.8f, LunaManor.GrandStairX1 + 1.1f, lawn.yMax);
+        for (int i = 0; i < 900 && parts.Count < 520; i++)
+        {
+            Vector2 q = new Vector2(Random.Range(lawn.xMin + inset + 0.1f, lawn.xMax - inset - 0.1f), Random.Range(lawn.yMin + inset + 0.1f, lawn.yMax - inset - 0.1f));
+            float toEdge = Mathf.Min(Mathf.Min(q.x - lawn.xMin, lawn.xMax - q.x), Mathf.Min(q.y - lawn.yMin, lawn.yMax - q.y));
+            // Thick along the edges, sparse in the open middle (the water shows there).
+            if (stair.Contains(q) || Random.value > Mathf.Lerp(1f, 0.35f, Mathf.InverseLerp(0.6f, 3f, toEdge)))
+            {
+                continue;
+            }
+
+            // The path from the glass door's steps and the back door's foot stay clear.
+            if (Mathf.Abs(q.x - 0.2f) < 1.4f && q.y < lawn.yMin + 2.6f)
+            {
+                continue;
+            }
+
+            float w = Random.Range(0.4f, 0.75f), h = Random.Range(0.25f, 0.55f);
+            Matrix4x4 m = Matrix4x4.TRS(M(q.x, LunaManor.GardenFloor, q.y), Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), new Vector3(w, h, w));
+            parts.Add(new CombineInstance { mesh = tuft, transform = m });
+        }
+
+        Random.state = saved;
+        Mesh combined = new Mesh { name = "GardenGrass", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        combined.CombineMeshes(parts.ToArray(), true, true);
+        combined.RecalculateBounds();
+        GameObject go = new GameObject("GardenGrass");
+        go.transform.SetParent(parent, false);
+        go.AddComponent<MeshFilter>().sharedMesh = combined;
+        MeshRenderer r = go.AddComponent<MeshRenderer>();
+        r.sharedMaterial = grass;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
     }
 }

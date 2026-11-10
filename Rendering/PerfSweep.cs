@@ -26,12 +26,13 @@ public sealed class PerfSweep : MonoBehaviour
 
     private static readonly Viewpoint[] Viewpoints =
     {
-        // The Luna mansion (plan coordinates + FloodedHouseBuilder.ManorOffset (-16.32, 0, -18.92), 13/10).
-        new Viewpoint { Name = "hall (vitrais, porta fosca)", Feet = new Vector3(-16.32f, 0f, -14.42f), Yaw = 0f },
-        new Viewpoint { Name = "sala de jantar (baia)", Feet = new Vector3(-24.12f, 0f, -12.42f), Yaw = 180f },
-        new Viewpoint { Name = "cozinha", Feet = new Vector3(-31.72f, 0f, -6.42f), Yaw = 180f },
-        new Viewpoint { Name = "galeria (patio, flora)", Feet = new Vector3(-24.92f, 0f, -3.92f), Yaw = 90f },
-        new Viewpoint { Name = "biblioteca (seda, ovos)", Feet = new Vector3(-2.82f, 0f, -7.42f), Yaw = 300f },
+        // The Luna mansion (plan coordinates through FloodedHouseBuilder.PlanToWorld: offset (-16.32, 0, -18.92) and the
+        // plan scale 1.25 about the basement stair (-6.07, 1.0), 29/10).
+        new Viewpoint { Name = "hall (vitrais, porta fosca)", Feet = new Vector3(-18.88f, 0f, -18.27f), Yaw = 0f },
+        new Viewpoint { Name = "sala de jantar (baia)", Feet = new Vector3(-28.63f, 0f, -15.77f), Yaw = 180f },
+        new Viewpoint { Name = "cozinha", Feet = new Vector3(-38.13f, 0f, -8.28f), Yaw = 180f },
+        new Viewpoint { Name = "galeria (patio, flora)", Feet = new Vector3(-29.63f, 0f, -5.15f), Yaw = 90f },
+        new Viewpoint { Name = "biblioteca (seda, ovos)", Feet = new Vector3(-2.01f, 0f, -9.53f), Yaw = 300f },
         new Viewpoint { Name = "despensa alagada", Feet = new Vector3(7.8f, -4.6f, -0.6f), Yaw = 0f },
     };
 

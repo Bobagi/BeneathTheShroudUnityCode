@@ -130,6 +130,7 @@ public sealed class FloodedHouseDirector : MonoBehaviour
     private float wingEnteredAt = -1f;
     private float nextStalk = -1f;
     private bool blackoutDone;
+    private bool torchFound;
     private bool restoring;
     private bool combatHintShown;
     private Vector3 checkpointPosition;
@@ -178,6 +179,9 @@ public sealed class FloodedHouseDirector : MonoBehaviour
 
     private void Start()
     {
+        // The house is abandoned and starts dark (29/10, Gustavo with Dayse): light comes back only from the
+        // emergency generator, in the generator room.
+        power.StartDark();
         player.Teleport(introSpawn.position, introSpawn.eulerAngles.y);
         safeRecorder.gameObject.SetActive(false);
         box.gameObject.SetActive(false);
@@ -268,6 +272,11 @@ public sealed class FloodedHouseDirector : MonoBehaviour
                 break;
             // Checked every frame rather than on an event: a torch switched on (or already on) before the
             // announcements end still moves the story on.
+            case Stage.Listen when gear.TorchOn && !torchFound:
+                torchFound = true;
+                Achievements.Unlock(Achievements.Light);
+                hud.SetObjectiveKey("obj.search");
+                break;
             case Stage.FindLight when blackoutDone && gear.TorchOn:
                 Achievements.Unlock(Achievements.Light);
                 Advance(Stage.Dehumidifier);
@@ -342,7 +351,9 @@ public sealed class FloodedHouseDirector : MonoBehaviour
         switch (next)
         {
             case Stage.Listen:
-                hud.SetObjectiveKey("obj.search");
+                // In the dark house the first thing is a light (the torch in the hall cabinet, its batteries in the
+                // kitchen); then the search for Alex.
+                ListenObjective();
                 if (!combatHintShown && inventory != null)
                 {
                     combatHintShown = true;
@@ -388,6 +399,18 @@ public sealed class FloodedHouseDirector : MonoBehaviour
         }
 
         Checkpoint();
+    }
+
+    private void ListenObjective()
+    {
+        if (gear.TorchOn)
+        {
+            hud.SetObjectiveKey("obj.search");
+        }
+        else
+        {
+            LightObjective();
+        }
     }
 
     private void LightObjective()
@@ -452,6 +475,7 @@ public sealed class FloodedHouseDirector : MonoBehaviour
         stage = Stage.FindLight;
         storm.Strike(true);
         yield return new WaitForSeconds(0.5f);
+        // The house is already dark (it starts so since 29/10): the storm's blow and the panel's warnings remain.
         power.Cut();
         dread.Provoke(0.6f);
         yield return new WaitForSeconds(2f);
@@ -489,6 +513,10 @@ public sealed class FloodedHouseDirector : MonoBehaviour
         }
 
         if (stage == Stage.FindLight)
+        {
+            LightObjective();
+        }
+        else if (stage == Stage.Listen && !gear.TorchOn)
         {
             LightObjective();
         }
@@ -593,6 +621,10 @@ public sealed class FloodedHouseDirector : MonoBehaviour
     private IEnumerator GeneratorRoom()
     {
         Achievements.Unlock(Achievements.Generators);
+        // The emergency generator takes, barely: the fittings come back weak and unsteady (PowerGrid.Emergency).
+        power.Emergency();
+        hud.ShowMessage(Loc.T("msg.generator_on"), 5f);
+        yield return new WaitForSeconds(1.5f);
         PanelAt(2);
         yield return panel.Announce(sysTwo, "sys.two");
         if (!items.HasItem("chave_porao"))
@@ -1174,9 +1206,9 @@ public sealed class FloodedHouseDirector : MonoBehaviour
             }
         }
 
-        if (!d.powerOn)
+        if (d.powerOn)
         {
-            power.RestoreCut();
+            power.Emergency(true);
         }
 
         if (d.wallBroken)

@@ -80,7 +80,9 @@ public sealed class ChestTorchMount : MonoBehaviour
     }
 
     // After the body's animation and IK: placed on the chest each frame (not parented to the bone, whose axes depend
-    // on the rig), facing the body's forward and tipped down a little.
+    // on the rig). It sits where the chest is but points where the CAMERA points (yaw and pitch), tipped down a
+    // little: the beam has to land where the player looks. Pointing it along the body's heading left the light on the
+    // wall beside the view while the torso lagged the turn (Gustavo, 22/10: everything is driven by the camera).
     private void LateUpdate()
     {
         if (!IsMounted)
@@ -88,9 +90,10 @@ public sealed class ChestTorchMount : MonoBehaviour
             return;
         }
 
-        Transform root = body.transform;
-        Quaternion facing = Quaternion.LookRotation(root.forward, Vector3.up);
-        torchHand.position = chest.position + facing * offset;
-        torchHand.rotation = facing * Quaternion.Euler(tilt, 0f, 0f);
+        Transform eye = controller != null ? controller.CameraPivot : null;
+        Quaternion view = eye != null ? Quaternion.LookRotation(eye.forward, Vector3.up) : Quaternion.LookRotation(body.transform.forward, Vector3.up);
+        Quaternion yawOnly = Quaternion.Euler(0f, view.eulerAngles.y, 0f);
+        torchHand.position = chest.position + yawOnly * offset;
+        torchHand.rotation = view * Quaternion.Euler(tilt, 0f, 0f);
     }
 }

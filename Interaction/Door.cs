@@ -3,8 +3,9 @@ using UnityEngine;
 
 // A door on a hinge. The old wooden ones open with a key (an item id the player must carry); the ones the
 // Lunas fitted later have a keypad (MansionHud asks for the code, with a hint); some stay shut until the
-// story opens them (Unlock), saying why. Once open it stays open. The hinge is this object's transform; the
-// leaf (with its collider) is a child, so it swings with it.
+// story opens them (Unlock), saying why. Once open it can be closed again with E (closable), and a double door's
+// two leaves are linked: using either swings both (the partner follows in silence). The hinge is this object's
+// transform; the leaf (with its collider) is a child, so it swings with it.
 public sealed class Door : Interactable
 {
     public enum Lock { None, Key, Code, Story }
@@ -31,11 +32,26 @@ public sealed class Door : Interactable
     [SerializeField]
     private float openSeconds = 1.1f;
 
+    [Tooltip("Once open, E closes it again.")]
+    [SerializeField]
+    private bool closable = true;
+
+    [Tooltip("The other leaf of a double door: opens and closes together with this one.")]
+    [SerializeField]
+    private Door linked;
+
+    [Tooltip("Built already swung open (a house left in a hurry): the closed pose is openAngle back from where it starts.")]
+    [SerializeField]
+    private bool startOpen;
+
     [SerializeField]
     private AudioSource source;
 
     [SerializeField]
     private AudioClip openClip;
+
+    [SerializeField]
+    private AudioClip closeClip;
 
     [SerializeField]
     private AudioClip unlockClip;
@@ -44,15 +60,22 @@ public sealed class Door : Interactable
     private AudioClip lockedClip;
 
     private bool open;
-    private bool opening;
+    private bool moving;
+    private Quaternion closedRotation;
+    private bool closedKnown;
 
     public bool IsOpen => open;
-    public override bool CanInteract => !open && !opening;
+    public override bool CanInteract => !moving && (!open || closable);
 
     public override string Prompt
     {
         get
         {
+            if (open)
+            {
+                return Loc.T("prompt.close");
+            }
+
             switch (lockType)
             {
                 case Lock.Code: return Loc.T("prompt.enter_code");
@@ -72,16 +95,61 @@ public sealed class Door : Interactable
         lockedMessage = message;
     }
 
+    // The two leaves of a double door, each the other's partner.
+    public static void Link(Door a, Door b)
+    {
+        a.linked = b;
+        b.linked = a;
+    }
+
+    public void SetClosable(bool value)
+    {
+        closable = value;
+    }
+
     // The story lets it open (and a key door no longer needs its key once it is unlocked this way).
     public void Unlock()
     {
         lockType = Lock.None;
     }
 
+    private void Awake()
+    {
+        RememberClosed();
+    }
+
+    private void RememberClosed()
+    {
+        if (!closedKnown)
+        {
+            closedRotation = startOpen ? transform.localRotation * Quaternion.Euler(0f, -openAngle, 0f) : transform.localRotation;
+            open = startOpen;
+            closedKnown = true;
+        }
+    }
+
+    // Builders: the leaf is placed in its open pose and remembers that closed is openAngle back.
+    public void SetStartOpen(float angle)
+    {
+        openAngle = angle;
+        startOpen = true;
+    }
+
     public override void Interact(PlayerInteractor interactor)
     {
-        if (open || opening)
+        if (moving)
         {
+            return;
+        }
+
+        if (open)
+        {
+            if (closable)
+            {
+                Close();
+                interactor.NotifyUsed(this);
+            }
+
             return;
         }
 
@@ -121,22 +189,52 @@ public sealed class Door : Interactable
 
     public void Open(float delay = 0f)
     {
-        if (!open && !opening)
+        Open(delay, true);
+    }
+
+    public void Close()
+    {
+        Close(true);
+    }
+
+    private void Open(float delay, bool withPartner)
+    {
+        if (!open && !moving)
         {
-            StartCoroutine(Swing(delay));
+            StartCoroutine(Swing(delay, true, withPartner));
+        }
+
+        if (withPartner && linked != null)
+        {
+            linked.lockType = Lock.None;
+            linked.Open(delay, false);
+        }
+    }
+
+    private void Close(bool withPartner)
+    {
+        if (open && !moving)
+        {
+            StartCoroutine(Swing(0f, false, withPartner));
+        }
+
+        if (withPartner && linked != null)
+        {
+            linked.Close(false);
         }
     }
 
     // Loading a checkpoint: already open, at once and in silence.
     public void RestoreOpen()
     {
-        if (open || opening)
+        if (open || moving)
         {
             return;
         }
 
+        RememberClosed();
         lockType = Lock.None;
-        transform.localRotation *= Quaternion.Euler(0f, openAngle, 0f);
+        transform.localRotation = closedRotation * Quaternion.Euler(0f, openAngle, 0f);
         open = true;
     }
 
@@ -146,25 +244,34 @@ public sealed class Door : Interactable
         interactor.Hud.ShowMessage(Loc.Resolve(lockedMessage), 3f);
     }
 
-    private IEnumerator Swing(float delay)
+    private IEnumerator Swing(float delay, bool toOpen, bool loud)
     {
-        opening = true;
+        RememberClosed();
+        moving = true;
         yield return new WaitForSeconds(delay);
-        Play(openClip, 0.9f);
-        Quaternion closed = transform.localRotation;
-        Quaternion target = closed * Quaternion.Euler(0f, openAngle, 0f);
-        for (float t = 0f; t < 1f; t += Time.deltaTime / openSeconds)
+        if (loud)
+        {
+            Play(toOpen ? openClip : (closeClip != null ? closeClip : openClip), 0.9f);
+        }
+
+        Quaternion from = transform.localRotation;
+        Quaternion target = toOpen ? closedRotation * Quaternion.Euler(0f, openAngle, 0f) : closedRotation;
+        float seconds = toOpen ? openSeconds : openSeconds * 0.8f;
+        for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
         {
             // Heavy at first, then it swings.
             float e = 1f - Mathf.Pow(1f - Mathf.SmoothStep(0f, 1f, t), 2f);
-            transform.localRotation = Quaternion.Slerp(closed, target, e);
+            transform.localRotation = Quaternion.Slerp(from, target, e);
             yield return null;
         }
 
         transform.localRotation = target;
-        opening = false;
-        open = true;
-        Opened?.Invoke(this);
+        moving = false;
+        open = toOpen;
+        if (toOpen)
+        {
+            Opened?.Invoke(this);
+        }
     }
 
     private void Play(AudioClip clip, float volume)

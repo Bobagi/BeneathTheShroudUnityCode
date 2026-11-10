@@ -63,13 +63,13 @@ public static partial class FloodedHouseBuilder
         laundry.gameObject.SetActive(false);
         powerRoom.gameObject.SetActive(false);
 
-        // What the power room guards: a spare filter and a bandage (placeholder shapes until a model comes).
+        // What the power room guards: a spare filter and a bandage (the first aid tin, Meshy 10/11, 4 k triangles).
         Transform rewards = Group("PowerRoomRewards", enemies);
         FilterPickup("Filter4", rewards, M(9.6f, 0f, 24.2f), "filtro_4");
         InventoryItem bandage = AssetDatabase.LoadAssetAtPath<InventoryItem>(HouseItemsFolder + "/bandage.asset");
         if (bandage != null)
         {
-            HouseItemPickup(rewards, bandage, M(9.2f, 0f, 24.1f), new Color(0.9f, 0.88f, 0.8f), PrimitiveType.Cylinder, new Vector3(0.08f, 0.03f, 0.08f));
+            HouseItemPickup(rewards, bandage, M(9.2f, 0f, 24.1f), new Color(0.9f, 0.88f, 0.8f), PrimitiveType.Cylinder, new Vector3(0.08f, 0.03f, 0.08f), "Bandage");
         }
 
         // ---------------- the finale: the stair grab and the hiding in the laundry
@@ -91,6 +91,10 @@ public static partial class FloodedHouseBuilder
         // Crouched between the washing machines and the smashed dehumidifier, back to the east wall, facing the room
         // (west-south-west): the machines hide him from the hole, the whole room is in front when he rises.
         Transform hideSpot = Marker("HideSpot", finaleGroup, M(14.35f, 0f, 22.2f), 255f);
+        // Alex's box of .357 rounds on the floor in front of the hiding place (model 10/11, 999 triangles): where the
+        // loose rounds of the finale come from (DemoFinale.looseRounds), seen when he crouches and opens the cylinder.
+        ModelProp("AmmoBox357", finaleGroup, hideSpot.position + hideSpot.forward * 0.42f + hideSpot.right * 0.22f,
+            Quaternion.Euler(0f, hideSpot.eulerAngles.y + 25f, 0f), false);
 
         DrownedBrain grabber = Drowned(prefab, finaleGroup, "GrabDrowned", new Vector3(-5.4f, LandingY, -3.2f), new Vector3(-5.4f, LandingY, 0f));
         grabber.gameObject.SetActive(false);
@@ -157,17 +161,28 @@ public static partial class FloodedHouseBuilder
     }
 
     // A backpack item lying in the house, as a plain shape until a model comes (ItemPickup: E puts it in the backpack).
-    private static void HouseItemPickup(Transform parent, InventoryItem item, Vector3 at, Color colour, PrimitiveType shape, Vector3 size)
+    // `model` (a Props/<name> FBX) replaces the placeholder shape when it exists.
+    private static void HouseItemPickup(Transform parent, InventoryItem item, Vector3 at, Color colour, PrimitiveType shape, Vector3 size, string model = null)
     {
         GameObject pickup = new GameObject("Pickup_" + item.id);
         pickup.transform.SetParent(parent, false);
         pickup.transform.position = at;
-        GameObject visual = GameObject.CreatePrimitive(shape);
-        visual.name = "Shape";
-        visual.transform.SetParent(pickup.transform, false);
-        visual.transform.localPosition = new Vector3(0f, size.y * 0.5f + 0.005f, 0f);
-        visual.transform.localScale = size;
-        visual.GetComponent<Renderer>().sharedMaterial = Plain("Item_" + item.id, colour, 0.3f, 0f);
+        GameObject visual;
+        if (model != null && AssetDatabase.LoadAssetAtPath<GameObject>(ProjectPaths.PropModels + "/" + model + "/" + model + ".fbx") != null)
+        {
+            visual = ModelProp(model, pickup.transform, at, Quaternion.Euler(0f, 30f, 0f));
+            visual.name = "Shape";
+        }
+        else
+        {
+            visual = GameObject.CreatePrimitive(shape);
+            visual.name = "Shape";
+            visual.transform.SetParent(pickup.transform, false);
+            visual.transform.localPosition = new Vector3(0f, size.y * 0.5f + 0.005f, 0f);
+            visual.transform.localScale = size;
+            visual.GetComponent<Renderer>().sharedMaterial = Plain("Item_" + item.id, colour, 0.3f, 0f);
+        }
+
         GlowShells(visual);
         ItemPickup component = pickup.AddComponent<ItemPickup>();
         component.Configure(item, 1);
