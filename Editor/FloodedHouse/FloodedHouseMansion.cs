@@ -59,7 +59,8 @@ public static partial class FloodedHouseBuilder
         return material;
     }
 
-    // Glowing mould on the walls: blotches of a noise texture, cut out and emissive.
+    // Glowing mould on the walls. Since 10/11 the texture is a photo of mycelium spreading out (ComfyUI, kept in
+    // SourceAssets/StoryArt/Fungus; alpha from its brightness); the noise blotches below only run when it is missing.
     private static Material MoldPatchMaterial()
     {
         string folder = ProjectPaths.Textures + "/Fungus";
@@ -90,15 +91,15 @@ public static partial class FloodedHouseBuilder
 
         Material material = Material("MoldPatch", Shader.Find("Universal Render Pipeline/Lit"));
         material.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(path));
-        material.SetColor("_BaseColor", new Color(0.05f, 0.07f, 0.08f));
+        material.SetColor("_BaseColor", new Color(0.55f, 0.55f, 0.5f));
         material.SetFloat("_AlphaClip", 1f);
-        material.SetFloat("_Cutoff", 0.4f);
+        material.SetFloat("_Cutoff", 0.35f);
         material.EnableKeyword("_ALPHATEST_ON");
         material.SetFloat("_Cull", (float)CullMode.Off);
         material.EnableKeyword("_EMISSION");
         material.SetTexture("_EmissionMap", AssetDatabase.LoadAssetAtPath<Texture2D>(path));
         // Faint: the clumps carry the glow; the film only shows the mould spreading around them.
-        material.SetColor("_EmissionColor", new Color(0.08f, 0.3f, 0.5f) * 0.45f);
+        material.SetColor("_EmissionColor", new Color(0.08f, 0.3f, 0.5f) * 0.3f);
         material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
         EditorUtility.SetDirty(material);
         TileSizes[material] = 1f;
@@ -117,7 +118,14 @@ public static partial class FloodedHouseBuilder
         Transform cluster = Group(name, parent);
         cluster.position = at;
         cluster.rotation = Quaternion.FromToRotation(Vector3.up, outward);
-        int count = Random.Range(6, 11);
+        // Real scans when they are in the project (FloodedHouseFungusModels, 10/11); the old primitive caps otherwise.
+        bool models = FungusModelsReady();
+        if (models)
+        {
+            FungusModelsCluster(cluster, at, outward, kind, scale);
+        }
+
+        int count = models ? 0 : Random.Range(6, 11);
         for (int i = 0; i < count; i++)
         {
             Vector2 spot = Random.insideUnitCircle * 0.28f * scale;
@@ -166,7 +174,9 @@ public static partial class FloodedHouseBuilder
     private static Material FungusHalo(string name, Color colour)
     {
         Material material = Material(name, Shader.Find("Horror/SurfaceGlow"));
-        material.SetColor("_Color", colour * 0.22f);
+        // 10/11: the clumps are real scans now and carry their own glow; the halo of the clumps halved (the blue
+        // splash read as paint on the floor). The Lumina colonies keep theirs.
+        material.SetColor("_Color", colour * (name.StartsWith("Lumina") ? 0.22f : 0.12f));
         material.SetFloat("_Falloff", 2.4f);
         material.SetFloat("_Pulse", 0.3f);
         // 29/10: most of the glow is light on the surface (SurfaceGlow "Spill"); the added haze stays for the clumps on

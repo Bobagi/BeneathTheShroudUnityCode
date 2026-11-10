@@ -134,7 +134,20 @@ public static partial class FloodedHouseBuilder
             Material glow = m.GetComponentInChildren<Renderer>().sharedMaterial;
             glow.EnableKeyword("_EMISSION");
             glow.SetTexture("_EmissionMap", glow.GetTexture("_BaseMap"));
-            glow.SetColor("_EmissionColor", new Color(0.18f, 0.55f, 0.95f) * 0.9f);
+            // 10/11: the Meshy texture is one flat pale blue, and at 0.9 the emission turned the mushroom into a block of
+            // lit plastic hiding its veins. Deeper, wetter flesh, the glow at a third, and the skin of a real scan
+            // (the oyster cluster's normal map, tiled) as detail, so it reads as flesh under the torch.
+            glow.SetColor("_BaseColor", new Color(0.86f, 0.68f, 0.6f));
+            glow.SetColor("_EmissionColor", new Color(0.3f, 0.55f, 0.75f) * 0.12f);
+            glow.SetFloat("_Smoothness", 0.78f);
+            Texture2D skin = AssetDatabase.LoadAssetAtPath<Texture2D>(ProjectPaths.PropModels + "/OysterCluster/OysterCluster_Normal.png");
+            if (skin != null)
+            {
+                glow.SetTexture("_DetailNormalMap", skin);
+                glow.SetFloat("_DetailNormalMapScale", 0.8f);
+                glow.SetTextureScale("_DetailAlbedoMap", new Vector2(5f, 5f));
+                glow.EnableKeyword("_DETAIL_MULX2");
+            }
             glow.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             EditorUtility.SetDirty(glow);
             Halo(g, "FungusHaloBlue", at + Vector3.up * 0.02f, Vector3.up, 2.6f, new Color(0.3f, 0.6f, 1f));
@@ -464,8 +477,23 @@ public static partial class FloodedHouseBuilder
         mesh.bounds = new Bounds(mesh.bounds.center, mesh.bounds.size + Vector3.one * 0.2f);
         GameObject tubes = new GameObject("Tubes");
         tubes.transform.SetParent(root, false);
-        tubes.AddComponent<MeshFilter>().sharedMesh = mesh;
-        tubes.AddComponent<MeshRenderer>().sharedMaterial = anemone;
+        // 10/11: the generated tubes (white bent cylinders) gave way to a scan of giant tube worms, Riftia pachyptila
+        // (Scientart, CC BY): red plumes out of white sheaths on a dark rock, a deep-sea animal that fits the Lumina.
+        // The colony is still what AnemoneColony pulls into the floor and lets back up; the rock is sunk so only its
+        // top and the worms stand out of the broken boards. The swaying generated tubes stay as the fallback.
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(ProjectPaths.PropModels + "/RiftiaColony/RiftiaColony.fbx") != null)
+        {
+            float span = 0.5f + 0.01f * count;
+            GameObject worms = ModelProp("RiftiaColony", tubes.transform, at, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), false, false);
+            worms.transform.localScale *= span;
+            Bounds wb = RendererBounds(worms);
+            worms.transform.position += Vector3.up * (at.y - wb.min.y - 0.42f * span) + new Vector3(at.x - wb.center.x, 0f, at.z - wb.center.z);
+        }
+        else
+        {
+            tubes.AddComponent<MeshFilter>().sharedMesh = mesh;
+            tubes.AddComponent<MeshRenderer>().sharedMaterial = anemone;
+        }
         // The broken floor they come out of: a dark damp patch.
         GameObject patch = GameObject.CreatePrimitive(PrimitiveType.Quad);
         patch.name = "Hole";
