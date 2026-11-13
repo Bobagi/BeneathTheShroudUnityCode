@@ -65,6 +65,8 @@ public static partial class FloodedHouseBuilder
         BuildLighting();
         BuildReflectionProbes();
         BuildStory();
+        // Hex tiling on the stochastic surfaces (13/11): Material() put every house material back on URP Lit above.
+        Debug.Log("[FloodedHouse] hex tiling on " + HexTileMaterials.ApplyHouseDefault() + " materials.");
 
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), ScenePath);
@@ -224,6 +226,10 @@ public static partial class FloodedHouseBuilder
         }
 
         material.SetTexture("_BaseMap", albedo);
+        // The scale lives in the mesh UVs (world metres / tileMetres: BoxMesh, LunaManor.Tile), so the material's own
+        // tiling is 1 (Surface() then sets v for the non-square sets). A swap of sets without a Rebuild leaves a
+        // compensating scale here (SourceAssets/Tools/apply_surfaces_2026-11-13.cs); the Rebuild undoes it.
+        material.SetTextureScale("_BaseMap", Vector2.one);
         material.SetColor("_BaseColor", tint);
         material.SetTexture("_BumpMap", normal);
         material.SetFloat("_BumpScale", 1f);

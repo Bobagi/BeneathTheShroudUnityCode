@@ -57,18 +57,22 @@ public static partial class FloodedHouseBuilder
         // Aged surfaces of a wealthy house (Gustavo 11/10: "casa de alto padrão... texturas que mostrem que o tempo
         // passou"): Poly Haven sets, real scale, the smoothness in each set's map (matte, dusty). Frames, skirting and
         // wainscot in the varnished dark wood (Poly Haven's peeling painted timber read nearly black with orange streaks).
+        // 13/11: the service rooms in whitewashed brick (RoughPlaster read as street stone) and the courtyard's lawn as
+        // forest ground, sparse dry grass over earth (GardenGrass was an even carpet); the kitchen's wall tiles as
+        // square_tiles_03 (WallTiles, dirty_tiles, was dark red: a flat brown wall under the torch). Their real sizes:
+        // LunaManor.SurfaceTiles.
         Material S(string set) => Textured(set, LunaManor.SurfaceTiles[set], Color.white, 0.1f);
         LunaManor.Palette palette = new LunaManor.Palette
         {
-            wall = S("MossyStucco"), plaster = S("WornPlaster"), wallpaper = S("OldWallpaper"), azulejo = S("WallTiles"), ceiling = S("InteriorCeiling"),
+            wall = S("MossyStucco"), plaster = S("InteriorPlaster"), wallpaper = S("OldWallpaper"), azulejo = S("KitchenTiles"), ceiling = S("InteriorCeiling"),
             floor = S("Parquet"), tile = S("KitchenFloor"), stone = S("WhiteStucco"), concrete = S("WornConcreteFloor"), roof = S("RoofTiles"),
             trim = doorPaint, glass = glass, garden = mud, metal = rustyMetal,
             marble = S("MarbleTiles"), woodFloor = S("WornWoodFloor"), terracotta = S("TerracottaFloor"), mosaic = S("MosaicFloor"),
             bathFloor = S("BathMosaic"), bathWall = S("BathWallTiles"), panels = S("DarkPanels"), peeling = S("PeelingWall"),
-            service = S("RoughPlaster"), roughConcrete = S("RoughConcrete"), roofFlat = S("RoughConcrete"),
+            service = S("WhitewashedBrick"), roughConcrete = S("RoughConcrete"), roofFlat = S("RoughConcrete"),
             tiling = m => m != null && TileSizes.TryGetValue(m, out float t) ? t : 2f,
         };
-        palette.lawn = S("GardenGrass");
+        palette.lawn = S("GardenGround");
         palette.pebbles = S("Pebbles");
         palette = WithHouseArt(palette);
         LunaManor.Build(g, M(0f, 0f, 0f), palette, new LunaManor.Options { basementStairHole = true, frontDoorLeaf = true, footing = 0f, interior = true, planScale = PlanScale });
@@ -237,20 +241,26 @@ public static partial class FloodedHouseBuilder
         sheet.name = "FloodWater";
         Volume("FloodVolume", parent, new Vector3(a.x, LunaManor.GardenFloor - 0.05f, a.z), new Vector3(b.x, surface, b.z), surface, false, 3f);
 
-        // The grass: the island's tuft (three crossed photo cards), low here (a lawn gone wild, 25 to 55 cm), merged
-        // into one mesh.
+        // The grass: the island's tuft (three crossed photo cards), a lawn gone wild (30 to 85 cm, 13/11: at 25 to 55 cm
+        // and 520 tufts the lawn read as a flat green plane under the lightning), merged into one mesh. Its own material:
+        // the island tuft's yellow-green, dulled to the olive of grass nobody cut for thirty years.
         Mesh tuft = AssetDatabase.LoadAssetAtPath<Mesh>(ProjectPaths.Root + "/Cutscenes/GrassTuft.asset");
-        Material grass = AssetDatabase.LoadAssetAtPath<Material>(ProjectPaths.Art + "/Materials/Cutscenes/GrassTuft.mat");
-        if (tuft == null || grass == null)
+        Material island = AssetDatabase.LoadAssetAtPath<Material>(ProjectPaths.Art + "/Materials/Cutscenes/GrassTuft.mat");
+        if (tuft == null || island == null)
         {
             return;
         }
+
+        Material grass = Material("GardenTuft", island.shader);
+        grass.CopyPropertiesFromMaterial(island);
+        grass.SetColor("_BaseColor", new Color(0.58f, 0.6f, 0.4f));
+        EditorUtility.SetDirty(grass);
 
         List<CombineInstance> parts = new List<CombineInstance>();
         Random.State saved = Random.state;
         Random.InitState(2110);
         Rect stair = Rect.MinMaxRect(LunaManor.GrandStairX0 - 1.1f, LunaManor.GrandStairFootZ - 0.8f, LunaManor.GrandStairX1 + 1.1f, lawn.yMax);
-        for (int i = 0; i < 900 && parts.Count < 520; i++)
+        for (int i = 0; i < 2400 && parts.Count < 1150; i++)
         {
             Vector2 q = new Vector2(Random.Range(lawn.xMin + inset + 0.1f, lawn.xMax - inset - 0.1f), Random.Range(lawn.yMin + inset + 0.1f, lawn.yMax - inset - 0.1f));
             float toEdge = Mathf.Min(Mathf.Min(q.x - lawn.xMin, lawn.xMax - q.x), Mathf.Min(q.y - lawn.yMin, lawn.yMax - q.y));
@@ -266,7 +276,7 @@ public static partial class FloodedHouseBuilder
                 continue;
             }
 
-            float w = Random.Range(0.4f, 0.75f), h = Random.Range(0.25f, 0.55f);
+            float w = Random.Range(0.45f, 0.9f), h = Random.Range(0.3f, 0.85f);
             Matrix4x4 m = Matrix4x4.TRS(M(q.x, LunaManor.GardenFloor, q.y), Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), new Vector3(w, h, w));
             parts.Add(new CombineInstance { mesh = tuft, transform = m });
         }

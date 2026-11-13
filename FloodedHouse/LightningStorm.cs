@@ -11,8 +11,14 @@ public sealed class LightningStorm : MonoBehaviour
     [SerializeField]
     private Light[] flashLights;
 
+    // 2.2 (13/11, measured on the courtyard): at 3.5 the strike bleached the facade and the dead tree to white; with
+    // the sky lit in the same frame (skyFlashExposure) the clouds carry the strike and the walls keep their texture.
     [SerializeField]
-    private float flashIntensity = 3.5f;
+    private float flashIntensity = 2.2f;
+
+    [Tooltip("Quanto a exposição do skybox sobe no clarão (somado à exposição de base vezes o clarão): as nuvens acendem com o raio.")]
+    [SerializeField]
+    private float skyFlashExposure = 1.3f;
 
     [SerializeField]
     private Vector2 intervalSeconds = new Vector2(9f, 22f);
@@ -24,6 +30,8 @@ public sealed class LightningStorm : MonoBehaviour
     private AudioSource thunderSource;
 
     private float[] baseIntensities;
+    private float skyBaseExposure = -1f;
+    private static readonly int ExposureId = Shader.PropertyToID("_Exposure");
 
     // Every change of the flash (0 = dark, 1 = full strike), for what else lights up with it (the menu's bolt and
     // title). close = the bolt lands right over the house.
@@ -93,6 +101,28 @@ public sealed class LightningStorm : MonoBehaviour
         for (int i = 0; i < flashLights.Length; i++)
         {
             flashLights[i].intensity = baseIntensities[i] + flashIntensity * amount;
+        }
+
+        // The storm sky lights up with the bolt (clouds lit from inside); back to the dark base when it is over.
+        Material sky = RenderSettings.skybox;
+        if (sky != null && sky.HasProperty(ExposureId))
+        {
+            if (skyBaseExposure < 0f)
+            {
+                skyBaseExposure = sky.GetFloat(ExposureId);
+            }
+
+            sky.SetFloat(ExposureId, skyBaseExposure + skyFlashExposure * amount);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // The skybox is a shared asset: leave it at its base exposure (the editor keeps material edits made in Play).
+        Material sky = RenderSettings.skybox;
+        if (sky != null && skyBaseExposure >= 0f && sky.HasProperty(ExposureId))
+        {
+            sky.SetFloat(ExposureId, skyBaseExposure);
         }
     }
 }

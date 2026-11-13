@@ -458,7 +458,7 @@ public sealed class GameTuning : ScriptableObject
     public float exposureKey = 0.045f;
 
     [Tooltip("Quanto o olho pode abrir no escuro (em stops). Pouco, senão o escuro deixa de ser escuro.")]
-    [Range(0f, 3f)] public float exposureMaxUp = 2f;
+    [Range(0f, 3f)] public float exposureMaxUp = 2.8f;
 
     [Tooltip("Quanto o olho pode fechar olhando para luz forte (em stops).")]
     [Range(0f, 5f)] public float exposureMaxDown = 2.5f;

@@ -10,8 +10,10 @@ using UnityEngine.Rendering;
 // above the door, a red field and a bowl of flowers each side), a low dark sideboard and a small carved table; red
 // walls in the rooms either side.
 // Surfaces: ambientCG sets Dayse listed in "Modelos 3D - Sob o Manto" (Planks037A, Planks023A, PaintedPlaster018 for the
-// facade, Ground047 for the moss), historic wallpapers from Cooper Hewitt (CC0, cut to one repeat), the stained glass and
-// the tracery drawn for this house (SourceAssets/Tools/house_art_textures.py), paintings from museum open access (CC0).
+// facade until 13/11, Ground047 for the moss), historic wallpapers from Cooper Hewitt (CC0, cut to one repeat), the
+// stained glass and the tracery drawn for this house (SourceAssets/Tools/house_art_textures.py), paintings from museum
+// open access (CC0). Since 13/11 the facade and the roofs are Poly Haven sets (polyhaven_texture_fetch.py): the 1024 px
+// ambientCG facade over 2.2 m read as papier mache in the courtyard and the 1k slates went flat blue under the lightning.
 public static partial class FloodedHouseBuilder
 {
     private static Material frostedGlass, stainedGlass, hallBrass;
@@ -19,14 +21,24 @@ public static partial class FloodedHouseBuilder
     // The concept art's surfaces on a palette (the game's house and the opening's: both call it).
     public static LunaManor.Palette WithHouseArt(LunaManor.Palette palette)
     {
-        palette.wall = Surface("CreamFacade") ?? palette.wall;
+        // beige_wall_002 at 4k, a 3 m by 0.75 m strip (SurfaceTiles and SurfaceHeights), its albedo moved to the concept
+        // art's cream by the fetch script (the tint is in the texture, as CreamPlaster's was: the photo's mean (125, 106, 82)
+        // is darker than the cream (226, 210, 148), so a _BaseColor under 1 could not get there).
+        palette.wall = Surface("CreamStucco") ?? palette.wall;
+        if (palette.wall != null && palette.wall.name == "CreamStucco")
+        {
+            // The baked cream is an albedo of 0.8: under the lightning the courtyard walls clipped to white (13/11); 0.7 keeps
+            // the hue and puts the albedo near an aged lime wash.
+            palette.wall.SetColor("_BaseColor", new Color(0.7f, 0.7f, 0.7f, 1f));
+        }
         palette.plinth = Surface("OchrePlinth");
         palette.hallFloor = Surface("HallPlanks");
         palette.boards = Surface("WallBoards");
         palette.goldPaper = Surface("WallpaperGold");
         palette.redPaper = Surface("WallpaperRed");
         palette.greenPaper = Surface("WallpaperGreen");
-        palette.slate = Surface("SlateRoof");
+        // roof_slates_03 over 3 m, dark grey; the old ambientCG set stays as the fallback.
+        palette.slate = Surface("SlateRoof2") ?? Surface("SlateRoof");
         palette.stained = StainedGlassMaterial();
         palette.gilt = GiltMaterial();
         return palette;

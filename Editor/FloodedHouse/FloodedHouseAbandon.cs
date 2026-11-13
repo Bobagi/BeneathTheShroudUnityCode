@@ -15,6 +15,7 @@ public static partial class FloodedHouseBuilder
     private static void Abandon(Transform parent, Transform furniture)
     {
         Transform a = Group("Abandoned", parent);
+        CourtyardWeathering(a);
         Random.State saved = Random.state;
         Random.InitState(2910);
         Material[] grime = { Grime("GrimeDust"), Grime("GrimeWater"), Grime("GrimeMud") };
@@ -195,6 +196,149 @@ public static partial class FloodedHouseBuilder
         Vector2 ab = b - a;
         float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(ab.sqrMagnitude, 1e-6f));
         return Vector2.Distance(p, a + ab * t);
+    }
+
+    // The courtyard's weathering (13/11): the cream stucco at 4k replaced the old 1k facade with its baked mould, so the
+    // thirty years come back as decals that the texture does not repeat: a band of moss and mud along the base of the
+    // four courtyard walls (open to the rain, standing in the flooded lawn) and drips under the gallery floor. Called by
+    // Abandon() and, without a rebuild, by reflection on the "Abandoned" group.
+    public static void CourtyardWeathering(Transform parent)
+    {
+        Transform old = parent.Find("CourtyardWeathering");
+        if (old != null)
+        {
+            Object.DestroyImmediate(old.gameObject);
+        }
+
+        Transform t = Group("CourtyardWeathering", parent);
+        Material[] moss = { MossDecal("MossPatch"), MossDecal("MossPatchDark"), Grime("GrimeMud") };
+        Material[] drips = { LeakMaterial("Leaking001"), LeakMaterial("Leaking003"), LeakMaterial("Leaking005") };
+        Random.State saved = Random.state;
+        Random.InitState(1311);
+        Rect c = LunaManor.Courtyard;
+        // The four sides, each as (a, b, inward normal). The walls are not at the rect's edges: on some sides a covered
+        // walkway stands between the garden and the wall (measured 13/11), so each decal is placed by a ray cast from
+        // the garden outwards onto whatever wall it meets within 6 m.
+        (Vector2 a, Vector2 b, Vector2 n)[] sides =
+        {
+            (new Vector2(c.xMin, c.yMin), new Vector2(c.xMin, c.yMax), Vector2.right),
+            (new Vector2(c.xMax, c.yMin), new Vector2(c.xMax, c.yMax), Vector2.left),
+            (new Vector2(c.xMin, c.yMax), new Vector2(c.xMax, c.yMax), Vector2.down),
+            (new Vector2(c.xMin, c.yMin), new Vector2(c.xMax, c.yMin), Vector2.up),
+        };
+        int placed = 0;
+        foreach ((Vector2 a, Vector2 b, Vector2 n) in sides)
+        {
+            float length = Vector2.Distance(a, b);
+            Vector2 dir = (b - a) / length;
+            bool south = Mathf.Approximately(a.y, c.yMin) && Mathf.Approximately(b.y, c.yMin);
+            Vector3 outward = new Vector3(-n.x, 0f, -n.y);
+            // Moss and mud low on the wall, above the water line of the flooded lawn: a patch every metre or so.
+            for (float s = 0.6f; s < length - 0.6f; s += Random.Range(0.9f, 1.5f))
+            {
+                Vector2 at = a + dir * s;
+                if (south && at.x > LunaManor.GrandStairX0 - 0.6f && at.x < LunaManor.GrandStairX1 + 0.6f)
+                {
+                    continue;
+                }
+
+                float w = Random.Range(1.1f, 2.0f), h = Random.Range(0.6f, 1.1f);
+                if (WallHit(M(at + n * 0.8f, 0.9f), outward, out Vector3 hit))
+                {
+                    Material m = Random.value < 0.3f ? moss[2] : moss[Random.Range(0, 2)];
+                    float floor = FloorBelow(hit - outward * 0.3f);
+                    Decal(t, "Moss", m, new Vector3(hit.x, floor + 0.15f + h * 0.5f, hit.z), n, new Vector3(w, h, 0.6f), Random.Range(0.6f, 1f));
+                    placed++;
+                }
+            }
+
+            // Drips from the edge of the gallery floor: two or three a wall, the rain that runs off the upper gallery.
+            for (float s = Random.Range(1f, 2.5f); s < length - 0.8f; s += Random.Range(2.4f, 4.2f))
+            {
+                Vector2 at = a + dir * s;
+                if (south && at.x > LunaManor.GrandStairX0 - 0.6f && at.x < LunaManor.GrandStairX1 + 0.6f)
+                {
+                    continue;
+                }
+
+                float w = Random.Range(0.8f, 1.6f), h = Random.Range(2.2f, 3.3f);
+                if (WallHit(M(at + n * 0.8f, 2.2f), outward, out Vector3 hit))
+                {
+                    Decal(t, "Drip", drips[Random.Range(0, drips.Length)], new Vector3(hit.x, UF - 0.05f - h * 0.5f, hit.z), n, new Vector3(w, h, 0.6f), Random.Range(0.45f, 0.8f));
+                    placed++;
+                }
+            }
+        }
+
+        Random.state = saved;
+        Debug.Log("[FloodedHouse] CourtyardWeathering: " + placed + " decals on the courtyard walls.");
+    }
+
+    // The first wall face met from a point in the garden going outwards (stairs, rails and props are ignored).
+    private static bool WallHit(Vector3 from, Vector3 outward, out Vector3 point)
+    {
+        point = Vector3.zero;
+        foreach (RaycastHit hit in Physics.RaycastAll(from, outward, 6f))
+        {
+            string name = hit.collider.gameObject.name;
+            if (name.StartsWith("Court_") || name.StartsWith("Outer_") || name.StartsWith("Galeria") || name.Contains("_Wall"))
+            {
+                if (point == Vector3.zero || hit.distance < Vector3.Distance(from, point))
+                {
+                    point = hit.point;
+                }
+            }
+        }
+
+        return point != Vector3.zero;
+    }
+
+    private static float FloorBelow(Vector3 from)
+    {
+        return Physics.Raycast(from + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 4f) ? hit.point.y : LunaManor.GardenFloor;
+    }
+
+    private static void Decal(Transform parent, string name, Material material, Vector3 at, Vector2 inward, Vector3 size, float fade)
+    {
+        GameObject go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.position = at;
+        go.transform.rotation = Quaternion.LookRotation(new Vector3(-inward.x, 0f, -inward.y), Vector3.up);
+        DecalProjector d = go.AddComponent<DecalProjector>();
+        d.material = material;
+        d.size = size;
+        d.pivot = Vector3.zero;
+        d.fadeFactor = fade;
+        d.drawDistance = 40f;
+        // Not on the lawn or the gallery floor that the box crosses at a grazing angle (degrees: 0.25/0.6 hid the decal on
+        // every surface, measured 13/11).
+        d.startAngleFade = 60f;
+        d.endAngleFade = 110f;
+    }
+
+    private static Material MossDecal(string name)
+    {
+        string folder = ProjectPaths.Art + "/VFX/Textures/Abandon";
+        foreach ((string file, bool normal) in new[] { (name, false), (name + "_Normal", true) })
+        {
+            string texturePath = folder + "/" + file + ".png";
+            if (AssetImporter.GetAtPath(texturePath) is TextureImporter importer && (importer.wrapMode != TextureWrapMode.Clamp || (normal && importer.textureType != TextureImporterType.NormalMap) || (!normal && !importer.alphaIsTransparency)))
+            {
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+                importer.alphaIsTransparency = !normal;
+                importer.maxTextureSize = 1024;
+                importer.SaveAndReimport();
+            }
+        }
+
+        Material m = Material(name, Shader.Find("Shader Graphs/Decal"));
+        m.SetTexture("Base_Map", AssetDatabase.LoadAssetAtPath<Texture2D>(folder + "/" + name + ".png"));
+        m.SetTexture("Normal_Map", AssetDatabase.LoadAssetAtPath<Texture2D>(folder + "/" + name + "_Normal.png"));
+        m.SetFloat("Normal_Blend", 0.5f);
+        m.enableInstancing = true;
+        EditorUtility.SetDirty(m);
+        return m;
     }
 
     private static Material Grime(string name)

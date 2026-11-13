@@ -163,7 +163,9 @@ public static partial class FloodedHouseBuilder
         ColorAdjustments murk = BattlefieldGet<ColorAdjustments>(under);
         murk.colorFilter.Override(new Color(0.62f, 0.88f, 0.82f));
         murk.saturation.Override(-35f);
-        murk.postExposure.Override(0.55f);
+        // 0.9 (13/11): at 0.55 the flooded pantry was 84% black with the torch on; with the eye opening to 2.8 stops the
+        // room reads (window, cabinet, the floating chair) and the murk keeps its colour.
+        murk.postExposure.Override(0.9f);
         murk.contrast.Override(12f);
         ChannelMixer absorb = BattlefieldGet<ChannelMixer>(under);
         absorb.redOutRedIn.Override(82f);

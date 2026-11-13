@@ -163,12 +163,20 @@ public static class LunaManor
         { "WallpaperBlue", 0.431f },
         // The courtyard lawn and its corner pebbles (ambientCG Grass004, Gravel022; 29/10).
         { "GardenGrass", 1.6f }, { "Pebbles", 1.2f },
+        // The courtyard's surfaces of 13/11 (Poly Haven, sizes from the API's "dimensions"): fine painted plaster for the
+        // facade (beige_wall_002, 4k, a 4:1 strip: width here, height in SurfaceHeights), whitewashed brick for the
+        // service rooms, forest ground for the lawn, dark slates for the roofs, square tiles for the kitchen's walls. The
+        // old sets stay for the scenes still using them.
+        { "CreamStucco", 3f }, { "WhitewashedBrick", 2f }, { "GardenGround", 2f }, { "SlateRoof2", 3f }, { "KitchenTiles", 2f }, { "InteriorPlaster", 3f },
     };
 
     // Tiles that are not square: their real height in metres (the texture's v scale is width / height).
     public static readonly Dictionary<string, float> SurfaceHeights = new Dictionary<string, float>
     {
         { "WallpaperGold", 0.456f }, { "WallpaperRed", 0.568f }, { "WallpaperGreen", 0.612f }, { "WallpaperBlue", 0.538f },
+        // beige_wall_002 is 4:1 in every resolution (4k = 4096 x 1024) although the API's dimensions say 3 x 3 m: its grain
+        // (5 to 20 px) only reads as stucco at 3 m across, so 0.75 m tall; an even plaster, the repeat does not show.
+        { "CreamStucco", 0.75f },
     };
 
     // ---------------------------------------------------------------- rooms: what each face of a wall shows
@@ -207,7 +215,9 @@ public static class LunaManor
         Add("Lavanderia", Box(Lavanderia), 0, p.service, TrimNone);
         Add("Passagem", Box(Passagem), 0, p.service, TrimNone);
         Add("Biblioteca", LibraryOutline, 0, p.panels, TrimBase);
-        Add("Galeria", Box(Courtyard), 0, p.plaster, TrimBase);
+        // The courtyard is open sky: its walls are facade (13/11; with p.plaster the courtyard shots showed the worn
+        // plaster's metre-wide patches on every wall around the garden).
+        Add("Galeria", Box(Courtyard), 0, p.wall, TrimBase);
         Add("Bunker", Box(Bunker), 0, p.roughConcrete, TrimNone);
         Add("Corredor", Box(R(15f, 23.5f, 18.8f, 28.6f)), 0, p.roughConcrete, TrimNone);
         Add("Deposito", Box(Deposito), 0, p.roughConcrete, TrimNone);

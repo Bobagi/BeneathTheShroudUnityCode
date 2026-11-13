@@ -115,7 +115,19 @@ public static partial class FloodedHouseBuilder
         // door to the grand stair (29/10: the stair stands where it grew, and the drawing sees the stair from the door),
         // its pool just over the flood.
         Vector3 tree = M(4.4f, y, 13.3f);
-        ModelProp("SwampTree", g, tree, Quaternion.Euler(0f, 20f, 0f));
+        GameObject swampTree = ModelProp("SwampTree", g, tree, Quaternion.Euler(0f, 20f, 0f));
+        // Dead wet wood, not bleached bone: at full tint the tree flashed pure white under the lightning (13/11).
+        foreach (Renderer r in swampTree.GetComponentsInChildren<Renderer>())
+        {
+            foreach (Material m in r.sharedMaterials)
+            {
+                if (m != null && m.HasProperty("_BaseColor"))
+                {
+                    m.SetColor("_BaseColor", new Color(0.66f, 0.63f, 0.58f, 1f));
+                    EditorUtility.SetDirty(m);
+                }
+            }
+        }
         GameObject pool = Primitive(PrimitiveType.Cylinder, "ContaminatedPool", g, tree + Vector3.up * 0.09f, Quaternion.identity, new Vector3(3.8f, 0.02f, 2.6f), contaminated);
         pool.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
         // Spores drifting off the tree over the whole garden (lit specks), its faint glow round the crown (a continuous
