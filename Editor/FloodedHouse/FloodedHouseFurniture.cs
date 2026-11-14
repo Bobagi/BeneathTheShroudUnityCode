@@ -282,6 +282,9 @@ public static partial class FloodedHouseBuilder
         On(f, "ClayPot", stand, 0f);
         Against(f, "Bench", V2(-10f, 18.2f), Vector2.right, UF);
 
+        // The bunker, the store and generator room 1 (14/11, FloodedHouseServiceRooms).
+        ServiceRooms(f);
+
         WaterStains(f);
         // The house left to the damp: grime, leaves, papers, fallen plaster, chairs knocked over (29/10).
         Abandon(parent, f);
@@ -337,8 +340,7 @@ public static partial class FloodedHouseBuilder
         Vector3 inward = new Vector3(into.x, 0f, into.y);
         float backExtent = Mathf.Abs(Vector3.Dot(b.extents, new Vector3(Mathf.Abs(inward.x), 0f, Mathf.Abs(inward.z))));
         float centreOffset = Vector3.Dot(b.center - m.transform.position, inward);
-        // The wall grew with the plan scale: its face is WallHalf x PlanScale from the centre line.
-        m.transform.position += inward * (WallHalf * PlanScale + 0.03f + backExtent - centreOffset);
+        m.transform.position += inward * (FaceOffset(M(wall, y), inward, b.size.y) + 0.03f + backExtent - centreOffset);
         return m;
     }
 
@@ -405,10 +407,17 @@ public static partial class FloodedHouseBuilder
             return null;
         }
 
+        return ModelProp(name, parent, LevelAt(under, below, along, across), Quaternion.Euler(0f, under.transform.eulerAngles.y + yaw, 0f), false);
+    }
+
+    // The point on `under`'s highest surface less than `below` metres over its base, at its centre moved `along` (its
+    // right) and `across` (its front): a plank of a shelf. `below` counts from the model's base (upstairs too, 14/11).
+    private static Vector3 LevelAt(GameObject under, float below, float along, float across)
+    {
         Bounds b = RendererBounds(under);
         Vector3 at = new Vector3(b.center.x, b.min.y, b.center.z) + Right(under) * along + Forward(under) * across;
-        at.y = TopAt(under, at, b.min.y, below) + 0.002f;
-        return ModelProp(name, parent, at, Quaternion.Euler(0f, under.transform.eulerAngles.y + yaw, 0f), false);
+        at.y = TopAt(under, at, b.min.y, b.min.y + below) + 0.002f;
+        return at;
     }
 
     // A world point on the top of `under` at the plan position `at` (for things placed by plan coordinates).
@@ -485,8 +494,27 @@ public static partial class FloodedHouseBuilder
         Vector3 inward = new Vector3(into.x, 0f, into.y);
         float backExtent = Mathf.Abs(Vector3.Dot(b.extents, new Vector3(Mathf.Abs(inward.x), 0f, Mathf.Abs(inward.z))));
         float centreOffset = Vector3.Dot(b.center - M(wall, 0f), inward);
-        m.transform.position += inward * (WallHalf * PlanScale + 0.03f + backExtent - centreOffset);
+        m.transform.position += inward * (FaceOffset(M(wall, b.center.y - b.extents.y), inward, b.size.y) + 0.03f + backExtent - centreOffset);
         return m;
+    }
+
+    // How far the wall's face is from its centre line, measured: a ray from 1 m inside the room back to the wall at the
+    // model's mid height (props skipped). The walls are not all one thickness (interior 0.2 plan, outer 0.3, the bunker
+    // 0.5) and the old constant left things 6 cm off interior walls and 12 cm inside the bunker's (14/11). Falls back
+    // to the outer walls' half thickness.
+    private static float FaceOffset(Vector3 wallWorld, Vector3 inward, float modelHeight)
+    {
+        Vector3 from = wallWorld + inward * 1.0f + Vector3.up * Mathf.Clamp(modelHeight * 0.5f, 0.25f, 1.2f);
+        if (WallFace(from, -inward, 1.3f, out Vector3 hit))
+        {
+            float d = Vector3.Dot(hit - wallWorld, inward);
+            if (d > 0.02f && d < 0.6f)
+            {
+                return d;
+            }
+        }
+
+        return WallHalf * PlanScale;
     }
 
     // The first static surface a ray meets (the house's walls and floors, not the props): where a thing on a wall hangs.
