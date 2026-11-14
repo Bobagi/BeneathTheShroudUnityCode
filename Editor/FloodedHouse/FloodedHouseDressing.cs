@@ -1165,34 +1165,36 @@ public static partial class FloodedHouseBuilder
         Prop("book_encyclopedia_set_01", g, M(-8.4f, 0.78f, 2.2f), 0f, false);
         // Pushed back from the desk, as if someone got up in a hurry.
         MakeSeat(Prop("painted_wooden_chair_01", g, M(-7.1f, 0f, 3.6f), 245f));
-        Prop("hanging_picture_frame_01", g, M(-11.49f, 1.9f, 4.6f), Quaternion.Euler(0f, 90f, -3f), false);
+        // One empty frame on the dining room's east wall; the one on the west wall hung over the still life that
+        // FloodedHouseHallArt put there later (14/11).
         Prop("hanging_picture_frame_01", g, M(-4.11f, 1.95f, 7.4f), Quaternion.Euler(0f, -90f, 2f), false);
 
         // The Lunas' sitting room (Gustavo, 01/10: a private-island house should look wealthy). Poly Haven
-        // pieces already inside the budget (sofa 4.1k, side table 2.8k, vase 2.5k, frame 0.9k); the coffee
-        // table and the console went through game-3d-assets (10.4k and 7.6k to 5k).
+        // pieces already inside the budget (sofa 4.1k, side table 2.8k, vase 2.5k, frame 0.9k).
+        // 14/11: FloodedHouseFurniture (11/10 and 16/10, Dayse's picks) laid its own set over this one and the two were
+        // never reconciled: the console stood inside the north-wall sofa with its candlesticks over the cushions, a
+        // second armchair and a second rocking chair sat on the first ones, the glass coffee table lay on the rug by the
+        // carved table, a frame hung behind the storm painting and a bookshelf over the portrait. What this pass keeps:
+        // the second sofa facing the bay window with its side table and vase, the old drawer, the clock and the chair
+        // that was knocked over.
         MakeSeat(Prop("Sofa_01", g, M(7.8f, 0f, 3.9f), 0f));
-        ModelProp("CoffeeTable", g, M(7.8f, 0f, 4.95f), Quaternion.identity);
         GameObject sideTable = Prop("side_table_01", g, M(9.05f, 0f, 3.9f), 0f);
         Prop("ceramic_vase_01", g, M(9.05f, RendererBounds(sideTable).max.y, 3.9f), 30f, false);
-        MakeSeat(Prop("ArmChair_01", g, M(5.4f, 0f, 6.4f), 117f));
-        MakeSeat(Prop("Rockingchair_01", g, M(10.3f, 0f, 7.4f), 200f));
-        GameObject console = ModelProp("Console", g, M(8.2f, 0f, 8.55f), Quaternion.Euler(0f, 180f, 0f));
-        Prop("ceramic_vase_01", g, M(8.6f, RendererBounds(console).max.y, 8.55f), 0f, false, 0.8f);
         // (The mantel clock came out of the optimiser with its glass baked black over the dial: left out.)
-        ModelProp("Candleholders", g, M(7.6f, RendererBounds(console).max.y, 8.5f), Quaternion.Euler(0f, 180f, 0f), false);
-        Prop("fancy_picture_frame_01", g, M(8.2f, 1.75f, 8.74f), 180f, false);
         Prop("vintage_wooden_drawer_01", g, M(5.2f, 0f, 8.5f), 180f);
-        Prop("wooden_bookshelf_worn", g, M(11.32f, 0f, 4.4f), -90f);
-        Prop("wall_clock", g, M(4.11f, 2.2f, 3.2f), 90f, false);
-        ModelProp("DiningChair", g, M(5.6f, 0f, 3.0f), Quaternion.Euler(0f, 40f, 88f));
+        // Over the piano's end, clear of the mirror that hangs over the console (14/11).
+        Prop("wall_clock", g, M(4.11f, 2.35f, 2.2f), 90f, false);
+        ModelProp("DiningChair", g, M(6.3f, 0f, 3.3f), Quaternion.Euler(0f, 40f, 88f));
 
         // The library: shelves along the walls, a reading table.
-        // Shelves between the windows of the east wall, along the north wall and either side of the south window, each
-        // full of the encyclopaedias (the metal office desk that stood here read as a filing cabinet: out).
-        foreach ((Vector2 at, float yaw) in new[] { (V2(19.74f, 8.4f), -90f), (V2(12f, 13.24f), 180f), (V2(14f, 13.24f), 180f), (V2(16f, 13.24f), 180f), (V2(12.9f, 3.56f), 0f), (V2(17.6f, 3.56f), 0f) })
+        // Shelves between the windows of the east wall, on the north wall and west of the south window, each full of
+        // the encyclopaedias (the metal office desk that stood here read as a filing cabinet: out). 14/11: three of the
+        // six stood inside FloodedHouseFurniture's shelves and bookcase (north wall 12 and 16, south wall 17.6); the
+        // north wall now runs fungus corner, worn shelf (12.9), this shelf (14.3), painting (15.5), worn shelf (16.6),
+        // the hidden door's shelf (18.1).
+        foreach ((Vector2 wall, float yaw, Vector2 into) in new[] { (V2(19.9f, 8.4f), -90f, Vector2.left), (V2(14.3f, 13.4f), 180f, Vector2.down), (V2(12.9f, 3.4f), 0f, Vector2.up) })
         {
-            ShelfBooks(g, Prop("wooden_bookshelf_worn", g, M(at, 0f), yaw));
+            ShelfBooks(g, OffWall(Prop("wooden_bookshelf_worn", g, M(wall, 0f), yaw), wall, into));
         }
 
         MakeSeat(Prop("ArmChair_01", g, M(13f, 0f, 5f), 40f));

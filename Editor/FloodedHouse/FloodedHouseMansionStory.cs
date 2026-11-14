@@ -91,10 +91,12 @@ public static partial class FloodedHouseBuilder
         Clipping(0, s, new Vector3(t.x + 0.52f, tableTop + 0.003f, t.z + 0.25f), 12f);
 
         // The graduation photo on the old drawer in the living room; Erick remembers the year.
-        GameObject drawer = GameObject.Find("vintage_wooden_drawer_01");
-        float drawerTop = drawer != null ? RendererBounds(drawer).max.y : 0.8f;
-        Vector3 drawerAt = drawer != null ? RendererBounds(drawer).center : M(5.2f, 0f, 8.5f);
-        ReadableNote graduation = Readable("GraduationPhoto", s, new Vector3(drawerAt.x - 0.15f, drawerTop + 0.002f, drawerAt.z), 188f, "foto_formatura", "story.photo_grad.title", PlayerItems.EntryKind.Photo,
+        // The drawer is a Poly Haven prop, so its object carries the "_1k" suffix: by its bare name nothing was found and
+        // the photo hung in the air 30 cm over it (14/11). On its real top now (TopAt), the carved coffee table as a fallback.
+        GameObject drawer = GameObject.Find("vintage_wooden_drawer_01_1k") ?? GameObject.Find("vintage_wooden_drawer_01") ?? GameObject.Find("CarvedTable");
+        Vector3 drawerAt = drawer != null ? RendererBounds(drawer).center + new Vector3(-0.12f, 0f, 0f) : M(5.2f, 0f, 8.5f);
+        float drawerTop = drawer != null ? TopAt(drawer, drawerAt, RendererBounds(drawer).max.y) : 0.5f;
+        ReadableNote graduation = Readable("GraduationPhoto", s, new Vector3(drawerAt.x, drawerTop + 0.002f, drawerAt.z), 188f, "foto_formatura", "story.photo_grad.title", PlayerItems.EntryKind.Photo,
             "story.photo_grad.body", string.Empty, PhotoTexture("formatura", true, false));
         graduation.SetComment(Voice("erick_photo"), "voice.erick.photo");
         // The mould recording waits on the dinner table from the start (Gustavo, 01/10: hidden until the
@@ -111,15 +113,17 @@ public static partial class FloodedHouseBuilder
             "msg.torch_taken", new Vector3(0.4f, 0.25f, 0.4f));
         Readable("ResearchPhoto", hall, M(3.65f, cabinetTop + 0.002f, 7.1f), -80f, "foto_pesquisa", "story.photo_research.title", PlayerItems.EntryKind.Photo,
             "story.photo_research.body", string.Empty, PhotoTexture("pesquisa", false, true));
-        Clipping(1, hall, M(3.68f, cabinetTop + 0.002f, 7.5f), -95f);
+        // On the cabinet (at z 7.5 it lay past its end, in the air, 14/11).
+        Clipping(1, hall, OnTop(cabinet, new Vector2(3.72f, 7.25f)), -95f);
 
         // ---------------- kitchen
         Transform kitchen = Group("Kitchen", s);
         // The units along the north wall, the fridge and the table are FloodedHouseFurniture's.
         Prop("steel_frame_shelves_01", kitchen, M(-11.95f, 0f, 5.2f), -90f);
-        GameObject kitchenTable = GameObject.Find("KitchenTable");
-        float kitchenTop = kitchenTable != null ? RendererBounds(kitchenTable).max.y : 0.78f;
-        Prop("can_rusted", kitchen, M(-16.0f, kitchenTop, 8.0f), 40f, false);
+        // The furniture's table set (its top is only plan x -15.72 to -15.04, z 7.7 to 8.9; the can and the clipping were
+        // placed by a guessed height beside it, 14/11).
+        GameObject kitchenTable = GameObject.Find("KitchenTableSet");
+        Prop("can_rusted", kitchen, kitchenTable != null ? OnTop(kitchenTable, new Vector2(-15.62f, 8.05f)) : M(-15.62f, 0.82f, 8.05f), 40f, false);
         // Dayse's old gas stove (Sketchfab "Old Gas Stove and Oven", Glowbox 3D, CC BY; was the Poly Haven electric stove).
         ModelProp("GasStove", kitchen, M(-17.3f, 0f, 15.55f), Quaternion.Euler(0f, 180f, 0f));
         ModelProp("Microwave", kitchen, M(-13f, 0.93f, 15.5f), Quaternion.Euler(0f, 180f, 0f), false);
@@ -133,7 +137,7 @@ public static partial class FloodedHouseBuilder
         cellB.name = "Battery1";
         Pickup("Batteries", kitchen, cells, new[] { cellA, cellB }, "pilhas", "prompt.take_batteries",
             "msg.batteries_taken", new Vector3(0.3f, 0.15f, 0.3f));
-        Clipping(2, kitchen, M(-14.9f, kitchenTop + 0.003f, 8.0f), 20f);
+        Clipping(2, kitchen, (kitchenTable != null ? OnTop(kitchenTable, new Vector2(-15f, 8.35f)) : M(-15f, 0.82f, 8.35f)) + Vector3.up * 0.002f, 25f);
         GameObject key = KeyModel(kitchen, M(-13.4f, 0.005f, 12.3f), 70f);
         Pickup("DehumidifierKey", kitchen, M(-13.4f, 0f, 12.3f), new[] { key }, "chave_desumidificador", "prompt.take_key",
             "msg.key_taken", new Vector3(0.3f, 0.12f, 0.3f));
@@ -148,7 +152,7 @@ public static partial class FloodedHouseBuilder
         // 0.96 m): standing by the north wall, its torn fan (the file's -x face) turned to the door and the hiding spot.
         // Was three rusty primitives (a knocked-over casing, a torn panel, a hanging duct).
         ModelProp("Dehumidifier", machine, M(13.7f, 0f, 23.75f), Quaternion.Euler(0f, -30f, 0f));
-        Prop("modular_industrial_pipes_01", dehum, M(14.85f, 1.8f, 21.4f), -90f, false);
+        OffWall(Prop("modular_industrial_pipes_01", dehum, M(15f, 1.8f, 21.4f), -90f, false), V2(15f, 21.4f), Vector2.left);
         // The boat hook (Meshy 09/10, 2 k): stood on its handle, hook end up, leaning 10 degrees on the north wall with
         // the hook turned into the room. Was a cylinder with a small bent cylinder for the hook.
         // (measured: at yaw -60 the hook points south-south-west; the foot 0.39 m off the wall face at 24.45 leaves the top
@@ -201,7 +205,8 @@ public static partial class FloodedHouseBuilder
         Against(gen, "RustedGenerator", V2(15f, 19.95f), Vector2.left, UF);
         Against(gen, "GeneratorLP", V2(15f, 21.05f), Vector2.left, UF);
         Model(gen, "FuelCanister", V2(13.9f, 21.3f), 20f, UF);
-        Model(gen, "LpgTank", V2(13.5f, 19.55f), 0f, UF);
+        // West of the armoured cabinet (FloodedHouseFurniture, x 12.66 to 13.74 on the south wall): the tank stood inside it (14/11).
+        Model(gen, "LpgTank", V2(12.15f, 19.65f), 0f, UF);
         Hung(gen, "ElectricBox", V2(12.4f, 19.2f), Vector2.up, 1.2f);
         Model(gen, "PipeWrench", V2(13.2f, 20.6f), 70f, UF);
         GameObject office = ModelProp("MetalDesk", gen, M(12.1f, UF, 21.1f), Quaternion.Euler(0f, 180f, 0f));
@@ -711,7 +716,8 @@ public static partial class FloodedHouseBuilder
             (M(0.6f, UF + 2.0f, 21.49f), Vector3.back, 0, 1.1f),
             (M(1.2f, UC - 0.02f, 20.4f), Vector3.down, 1, 0.8f),
             (M(-0.6f, UF + 0.01f, 23.4f), Vector3.up, 0, 1.1f),
-            (M(2.69f, UF + 0.6f, 23f), Vector3.left, 2, 1f),
+            // High on the wall over the gothic cabinet (2.2 m tall, z 22.6 to 23.8): it grew inside it (14/11).
+            (M(2.69f, UF + 2.6f, 23f), Vector3.left, 2, 0.7f),
         };
         Transform fungus = Group("HallFungus", parent);
         for (int i = 0; i < clumps.Length; i++)
@@ -735,8 +741,10 @@ public static partial class FloodedHouseBuilder
             (M(9.2f, UF + 0.01f, 14.9f), Vector3.up, 1, 1.6f),
             (M(9.2f, UC - 0.02f, 16.4f), Vector3.down, 2, 1.1f),
             (M(5.3f, UF + 0.01f, 23.3f), Vector3.up, 1, 1.4f),
-            (M(7.79f, UF + 1.3f, 23f), Vector3.left, 0, 1.2f),
-            (M(11.5f, UF + 0.01f, 23.6f), Vector3.up, 2, 1.4f),
+            // On the north wall east of the curtains, over the nightstand (it grew in the bed's head and its painting, 14/11),
+            // and clear of the bath (z 23.4 to 24.1).
+            (M(7.2f, UF + 2.4f, 24.4f), Vector3.back, 0, 1.2f),
+            (M(9.6f, UF + 0.01f, 23.3f), Vector3.up, 2, 1.4f),
             (M(14.84f, UF + 1.5f, 22.8f), Vector3.left, 1, 1.2f),
             (M(12.6f, UF + 1.6f, 24.44f), Vector3.back, 0, 1.4f),
             (M(14.84f, UF + 0.6f, 17f), Vector3.left, 2, 1.1f),

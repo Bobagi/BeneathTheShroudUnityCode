@@ -1294,8 +1294,10 @@ public static class LunaManor
         Slab("Garagem_Roof", ob, Box(R(gg.xMin - 0.3f, gg.yMin - 0.3f, gg.xMax + 0.3f, gg.yMax + 0.3f)), 4.2f, 4.5f, Or(p.slate, p.roof), p.ceiling, p.trim, true);
         Walls("Garagem", ob, new[] { V(gg.xMin, gg.yMin), V(gg.xMax, gg.yMin), V(gg.xMax, gg.yMax), V(gg.xMin, gg.yMax) }, true, bottom, 4.2f, Ext, null, null,
             Hole.Door(V(-10.6f, gg.yMin), 2f, 2.4f), Hole.Open(V(-10.8f, gg.yMax), 5.4f, -0.25f, 3.6f), Hole.Window(V(gg.xMin, 30f), 1.2f), Hole.Window(V(gg.xMax, 30f), 1.2f));
-        // The boat's trailer (the boat itself is a model the game places).
-        Block("Trailer", ob, new Vector3(-10.8f, 0.12f, 30.2f), 0f, new Vector3(1.6f, 0.24f, 5.6f), p.metal, true);
+        // The boat's cradle: two timber sleepers under the hull (the boat itself is a model the game places, 4.6 m long,
+        // keel at 0.2). Was a 2 x 7 m slab of hazard-striped metal under a 4.6 m boat (14/11).
+        Block("Sleeper", ob, new Vector3(-10.8f, 0.1f, 29.3f), 0f, new Vector3(1.5f, 0.2f, 0.2f), p.trim, true);
+        Block("Sleeper", ob, new Vector3(-10.8f, 0.1f, 31.1f), 0f, new Vector3(1.5f, 0.2f, 0.2f), p.trim, true);
 
         // The dirt road from the vestibule's door down to the sea.
         Slab("Road", ob, Box(R(-1.5f, 26.8f, 1.7f, 34.5f)), GardenY - 0.2f, GardenY + 0.02f, p.garden, p.garden, p.garden, true);

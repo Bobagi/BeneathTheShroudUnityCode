@@ -200,11 +200,15 @@ public static partial class FloodedHouseBuilder
         Transform f = Group("PlanFungus", parent);
         (Vector3 at, Vector3 outward, int kind, float scale)[] clumps =
         {
-            (M(-14.24f, 0.6f, 18f), Vector3.right, 0, 1.2f), (M(-14.24f, 1.8f, 21.5f), Vector3.right, 2, 1.1f), (M(-12f, 0.01f, 23.6f), Vector3.up, 0, 1.3f),
-            (M(-11f, GC - 0.02f, 19f), Vector3.down, 2, 1f), (M(-9.86f, 1.2f, 17.5f), Vector3.left, 0, 1f), (M(-8f, 0.01f, 24f), Vector3.up, 2, 1.1f),
-            (M(-6f, 1.5f, 24.44f), Vector3.back, 0, 1f), (M(-5.06f, 0.8f, 22.4f), Vector3.left, 2, 0.9f),
+            // Between the furniture of the pantry and the china room (the steel units at z 18.4 and 21.6, the boxes at 23.6,
+            // the display shelves and the painted shelves on the north wall, the old cabinet at z 22.4 on the east wall):
+            // six of these grew inside a shelf, a box, a cabinet or the tea set (14/11).
+            (M(-14.24f, 0.6f, 17.2f), Vector3.right, 0, 1.2f), (M(-14.24f, 1.8f, 20.1f), Vector3.right, 2, 1.1f), (M(-12.6f, 0.01f, 22.9f), Vector3.up, 0, 1.3f),
+            (M(-11f, GC - 0.02f, 19f), Vector3.down, 2, 1f), (M(-9.86f, 1.2f, 17.5f), Vector3.left, 0, 1f), (M(-7.4f, 0.01f, 23.2f), Vector3.up, 2, 1.1f),
+            (M(-7f, 1.9f, 24.44f), Vector3.back, 0, 1f), (M(-5.06f, 1.9f, 23.5f), Vector3.left, 2, 0.9f),
             (M(4.16f, 0.5f, 7.6f), Vector3.right, 1, 1f), (M(10.5f, 1.4f, 8.74f), Vector3.back, 1, 0.9f),
-            (M(19.74f, 0.7f, 8f), Vector3.left, 1, 1.2f), (M(17.6f, 0.01f, 12.6f), Vector3.up, 1, 1.1f), (M(18.1f, 1.9f, 13.24f), Vector3.back, 1, 0.9f),
+            // On the south-east chamfer of the library (the east wall holds the jellyfish plate, the shelf and the cabinet).
+            (M(19.5f, 0.9f, 4.5f), new Vector3(-1f, 0f, 1f).normalized, 1, 0.9f), (M(17.6f, 0.01f, 12.6f), Vector3.up, 1, 1.1f), (M(18.1f, 1.9f, 13.24f), Vector3.back, 1, 0.9f),
         };
         for (int i = 0; i < clumps.Length; i++)
         {

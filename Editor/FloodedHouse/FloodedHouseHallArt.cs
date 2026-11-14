@@ -191,7 +191,8 @@ public static partial class FloodedHouseBuilder
     {
         Transform p = Group("Paintings", parent);
         // Dining room.
-        Painting("StillLifeFruit", p, M(-11.5f, 1.8f, 4.1f), Vector3.right, 0.75f, 0f);
+        // At 4.1 its frame reached the end of the outer wall's segment, 6 cm proud of the partition's face (14/11).
+        Painting("StillLifeFruit", p, M(-11.5f, 1.8f, 4.3f), Vector3.right, 0.75f, 0f);
         Painting("StillLifeGame", p, M(-5.7f, 1.95f, 8.75f), Vector3.back, 0.62f, 0f);
         // Living room.
         Painting("SeaStorm1", p, M(7.8f, 1.85f, 8.75f), Vector3.back, 0.9f, 0f);
@@ -201,9 +202,15 @@ public static partial class FloodedHouseBuilder
         // the library door (z 6.3) and the corner; the picture is a generated photograph in sepia (18/10, ComfyUI).
         Painting("AlexPortrait", p, M(11.5f, 1.75f, 7.9f), Vector3.left, 0.7f, 0f);
         // Library.
-        Painting("NightNorthCape", p, M(13.6f, 1.75f, 13.3f), Vector3.back, 0.75f, 0f);
-        Painting("LandscapeRiver", p, M(10.25f, 1.8f, 12.2f), Vector3.right, 0.6f, 0f);
-        Painting("HaeckelJellyfish", p, M(19.75f, 1.7f, 8.4f), Vector3.left, 0.8f, 0f);
+        // 14/11: the north-west corner is the silk fungus's and the west wall has the courtyard door at 10.4, so the river
+        // hangs on the library side of the living room wall, south of its door; the moonlit sea between the shelves of
+        // the north wall (12.9, 14.3, 16.6).
+        Painting("NightNorthCape", p, M(15.5f, 1.75f, 13.3f), Vector3.back, 0.75f, 0f);
+        Painting("LandscapeRiver", p, M(11.75f, 1.8f, 4.6f), Vector3.right, 0.6f, 0f);
+        // On the east wall's southern stretch, between the chamfered corner (ends at 4.6) and the first window (5.9): the
+        // dressing's bookshelf stands between the windows at 8.4, and north of the drawer cabinet the wall is a chamfer
+        // (the library's outline cuts its corners at 45 degrees), where the painting hung in the void (14/11).
+        Painting("HaeckelJellyfish", p, M(19.75f, 1.7f, 5.25f), Vector3.left, 0.8f, 0f);
         // Upper galleries.
         Painting("SeaStorm2", p, M(-9.9f, UF + 1.75f, 14.2f), Vector3.right, 0.8f, 0f);
         Painting("SeaStorm3", p, M(10.3f, UF + 1.75f, 18.6f), Vector3.left, 0.75f, 0f);
@@ -340,6 +347,14 @@ public static partial class FloodedHouseBuilder
         }
 
         hallBrass = hallBrass != null ? hallBrass : Plain("HallBrass", new Color(0.72f, 0.55f, 0.24f), 0.62f, 1f);
+        // On the wall's actual face: the points were given 0.1 m off the wall lines of the plan, and with the plan scale
+        // the faces are 0.19 m off, so three canvases stood inside their walls (14/11). A ray from the room back to the
+        // wall (props skipped) finds the face.
+        if (WallFace(wallPoint + facing * 0.5f, -facing, 0.9f, out Vector3 face))
+        {
+            wallPoint = new Vector3(facing.x != 0f ? face.x : wallPoint.x, wallPoint.y, facing.z != 0f ? face.z : wallPoint.z);
+        }
+
         Transform p = Group("Painting_" + image, parent);
         Vector3 right = Vector3.Cross(Vector3.up, facing).normalized;
         float border = 0.06f + 0.035f * height;

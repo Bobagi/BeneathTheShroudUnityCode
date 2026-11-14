@@ -94,18 +94,19 @@ public static partial class FloodedHouseBuilder
         // Dayse's "Old table and chair set" (Sketchfab, AndreiVNK, CC BY): one model, table and four chairs. Baked at
         // 1.7 m its table stood 0.85 m high; 0.9 brings it to 0.76.
         GameObject kitchenTable = Model(f, "KitchenTableSet", V2(-15.4f, 8.3f), 0f, 0f);
-        const float kitchenTableTop = 0.847f * 0.9f;
         if (kitchenTable != null)
         {
             kitchenTable.transform.localScale *= 0.9f;
-            // The set's box top is the chair backs, so the table top is given by hand: measured 8 cm higher than the first guess (22/10).
-            ModelProp("Jug", f, M(V2(-15.85f, 8.2f), kitchenTableTop + 0.08f), Quaternion.identity, false);
-            ModelProp("BrassPan", f, M(V2(-14.9f, 8.4f), kitchenTableTop + 0.08f), Quaternion.Euler(0f, 60f, 0f), false);
+            // The set's box top is the chair backs and its table top is only 0.85 x 1.5 m (plan x -15.72 to -15.04, z 7.7 to
+            // 8.9, measured 14/11): the jug and the pan stood beside it in the air. On the top itself now (TopAt).
+            ModelProp("Jug", f, OnTop(kitchenTable, V2(-15.55f, 8.5f)), Quaternion.identity, false);
+            ModelProp("BrassPan", f, OnTop(kitchenTable, V2(-15.3f, 8.1f)), Quaternion.Euler(0f, 60f, 0f), false);
         }
 
         Model(f, "EnamelPot", V2(-17.3f, 15.5f), 30f, 1.0f);
         Model(f, "CuttingBoard", V2(-13.6f, 15.5f), 10f, 0.92f);
-        Model(f, "Kettle", V2(-12.95f, 15.5f), 200f, 0.92f);
+        // West of the batteries (the story's microwave stands at -13, 15.5: the kettle was inside it, 14/11).
+        Model(f, "Kettle", V2(-14.6f, 15.55f), 200f, 0.92f);
         // The house's cooling (GDD: fitted against the heat): a ceiling cassette over the kitchen (Sketchfab, Mehdi
         // Shahsavan, CC BY), its grille flush with the ceiling and its box up in the slab.
         // The model has its grille on top and the box below: turned over, grille 4 cm under the ceiling.
@@ -117,24 +118,30 @@ public static partial class FloodedHouseBuilder
         }
 
         // ---------------- pantry and china room
-        Against(f, "SteelShelves2", V2(-14.4f, 18.4f), Vector2.right, 0f);
-        Against(f, "SteelShelves2", V2(-14.4f, 21.6f), Vector2.right, 0f);
+        GameObject shelves1 = Against(f, "SteelShelves2", V2(-14.4f, 18.4f), Vector2.right, 0f);
+        GameObject shelves2 = Against(f, "SteelShelves2", V2(-14.4f, 21.6f), Vector2.right, 0f);
         Against(f, "WornRack", V2(-9.7f, 19.2f), Vector2.left, 0f);
-        Model(f, "CardboardBox", V2(-11.4f, 23.6f), 20f, 0f);
-        Model(f, "CardboardBox", V2(-11.8f, 23.4f), -15f, 0.5f);
+        GameObject lowerBox = Model(f, "CardboardBox", V2(-11.4f, 23.6f), 20f, 0f);
+        // The second box on the first (it hung 40 cm beside it, in the air, 14/11).
+        On(f, "CardboardBox", lowerBox, 0.03f, -35f, -0.02f);
         Model(f, "LongLifeFood", V2(-12.6f, 17.2f), 0f, 0f);
-        Model(f, "FoodCans", V2(-13.7f, 18.3f), 0f, 0.95f);
-        Model(f, "FoodCans", V2(-13.7f, 21.8f), 40f, 0.45f);
+        // Cans on the units' planks (0.62, 1.12 and 1.64 m, measured 14/11): they stood 13 cm east of the units at heights
+        // between the planks, floating.
+        OnLevel(f, "FoodCans", shelves1, 0.9f, 0f, -0.1f, 0f);
+        OnLevel(f, "FoodCans", shelves2, 1.4f, 0f, 0.15f, 40f);
         Model(f, "Bucket2", V2(-10.6f, 22.8f), 0f, 0f);
         Model(f, "Barrel2", V2(-13.6f, 23.8f), 0f, 0f);
         // A second, abandoned fridge in the pantry (Sketchfab "Old Fridge", kai9987kai, CC BY).
         Against(f, "OldFridge", V2(-9.7f, 17f), Vector2.left, 0f);
-        GameObject display = Against(f, "DisplayShelves", V2(-8.5f, 24.6f), Vector2.down, 0f);
-        On(f, "MedievalJug", display, 0.3f);
+        // Its front is the file's -X (measured 14/11: it stood with its narrow end on the wall, sticking 1.1 m into the room).
+        GameObject display = Against(f, "DisplayShelves", V2(-8.5f, 24.6f), Vector2.down, 0f, 90f);
+        On(f, "MedievalJug", display, 0f, 0f, 0.3f);
         GameObject chinaShelves = Against(f, "PaintedShelves", V2(-5.9f, 24.6f), Vector2.down, 0f);
-        On(f, "TeaSet", chinaShelves, 0f);
+        // The unit has no top board (measured 14/11): on its upper plank, inside.
+        OnLevel(f, "TeaSet", chinaShelves, 1f, 0f, 0f, 0f);
         // An old cabinet on the china room's east wall (Sketchfab "Cabinet_old", Shintokin, CC BY).
-        Against(f, "OldCabinet", V2(-4.9f, 22.4f), Vector2.left, 0f);
+        // Its back is the file's +X (14/11: it stood across the room with its end on the wall).
+        Against(f, "OldCabinet", V2(-4.9f, 22.4f), Vector2.left, 0f, 90f);
 
         // ---------------- vestibule, power room, laundry
         Against(f, "Bench", V2(-4.9f, 23.2f), Vector2.right, 0f);
@@ -161,23 +168,28 @@ public static partial class FloodedHouseBuilder
 
         // ---------------- library: worn bookshelves on the north wall (the one nailed over the hidden door is the door
         // itself), the encyclopedias on the drawer cabinet by the west wall
-        Against(f, "Bookshelf", V2(11.5f, 13.4f), Vector2.down, 0f);
-        Against(f, "Bookshelf", V2(15.7f, 13.4f), Vector2.down, 0f);
+        // The north-west corner is the red silk fungus's (FloodedHouseFlora.SilkFungus, 2.4 m each way): the first shelf
+        // stood inside it (14/11). The river painting moved south on the west wall for the same reason.
+        Against(f, "Bookshelf", V2(12.9f, 13.4f), Vector2.down, 0f);
+        Against(f, "Bookshelf", V2(16.6f, 13.4f), Vector2.down, 0f);
         GameObject drawers = Against(f, "DrawerCabinet", V2(19.9f, 11.4f), Vector2.left, 0f);
-        On(f, "Encyclopedias", drawers, 0f);
         GameObject table = Model(f, "RoundTable", V2(15.8f, 10.6f), 0f, 0f);
         On(f, "ChessSet", table, -0.2f);
         On(f, "OilLamp", table, 0.45f);
+        // The encyclopedias on the reading table, behind the chess set: the cabinet's top (1.13 m inside its rim) does not
+        // hold them and the radio both (14/11).
+        On(f, "Encyclopedias", table, 0f, 90f, 0.42f);
         Model(f, "GreenChair", V2(15.8f, 9.4f), 0f, 0f);
         Model(f, "GreenChair", V2(15.8f, 11.8f), 180f, 0f);
         Floor(f, "RugCarpet", V2(15.6f, 9.2f), 90f, 0f);
         // Dayse's radio on the drawer cabinet (Sketchfab "Vintage Graetz Radio", nsadoun, CC BY), her glazed bookcase on the
         // south wall east of the octagonal window, the dusty bookshelf on the west wall north of the living-room door and a
         // 1920s standing lamp between the east windows.
-        On(f, "GraetzRadio", drawers, 0.6f);
+        On(f, "GraetzRadio", drawers, 0f);
         Against(f, "Bookcase", V2(18.2f, 3.4f), Vector2.up, 0f);
         Against(f, "DustyBookshelf", V2(11.6f, 8f), Vector2.right, 0f);
-        Model(f, "FloorLamp1920", V2(19.5f, 8.7f), 0f, 0f);
+        // South of the dressing's shelf between the east windows (it stood inside it, 14/11).
+        Model(f, "FloorLamp1920", V2(19.45f, 7.6f), 0f, 0f);
 
         // ---------------- the courtyard's gallery and garden
         Against(f, "Bench", V2(-9.7f, 17.4f), Vector2.right, 0f);
@@ -186,10 +198,12 @@ public static partial class FloodedHouseBuilder
 
         // ---------------- outside: the refrigeration system the house was fitted with against the heat (GDD), its
         // condenser on the kitchen's west wall between the windows
-        Against(f, "AirconUnit", V2(-19.5f, 9.8f), Vector2.left, 0f);
+        // On the ground outside (GardenY), not the house floor: it hung 30 cm over the dirt (14/11).
+        Against(f, "AirconUnit", V2(-19.5f, 9.8f), Vector2.left, LunaManor.GardenY);
 
         // ---------------- garage
-        Model(f, "BoatPlaceholder", V2(-10.8f, 30.2f), 90f, 0.24f);
+        // On the two timber sleepers LunaManor lays in the garage (their tops at 0.2).
+        Model(f, "BoatPlaceholder", V2(-10.8f, 30.2f), 90f, 0.2f);
         Against(f, "ToolChest", V2(-14.7f, 28.2f), Vector2.right, 0f);
         Against(f, "WornRack", V2(-6.9f, 28.8f), Vector2.left, 0f);
         Model(f, "Barrel2", V2(-7.6f, 27.4f), 0f, 0f);
@@ -225,7 +239,9 @@ public static partial class FloodedHouseBuilder
         Against(f, "DayBed", V2(LunaManor.QuartoAlex.xMin, 9.95f), Vector2.right, UF);
         // The dresser model is long along its own z: turned to run along the north wall, its back 15 cm + half its 0.42 m depth off it.
         GameObject dresser = Model(f, "Dresser", V2(12.7f, LunaManor.QuartoAlex.yMax - WallHalf - 0.21f), 90f, UF);
-        On(f, "BookStack", dresser, 0.4f);
+        // Along the dresser (its length is its own z, turned to world x): with `along` it stood 40 cm off the dresser's
+        // front, in the air (14/11).
+        On(f, "BookStack", dresser, 0f, 0f, 0.4f);
         GameObject bookTable = Model(f, "BookTable", V2(12.7f, 11.4f), 15f, UF);
         On(f, "TacticalFlashlight", bookTable, -0.3f, 70f);
         // Alex's cracked tablet (Meshy 09/10, 3.9 k triangles, 0.26 x 0.19 m, its screen the file's +z) lying screen up
@@ -311,10 +327,11 @@ public static partial class FloodedHouseBuilder
         return m;
     }
 
-    // Back against the wall at `wall` (a point on the wall's centre line), facing `into` the room.
-    private static GameObject Against(Transform parent, string name, Vector2 wall, Vector2 into, float y)
+    // Back against the wall at `wall` (a point on the wall's centre line), facing `into` the room. `modelYaw` turns a
+    // model whose front is not its +Z (the china room's display shelves and old cabinet have theirs on +X, 14/11).
+    private static GameObject Against(Transform parent, string name, Vector2 wall, Vector2 into, float y, float modelYaw = 0f)
     {
-        float yaw = Mathf.Atan2(into.x, into.y) * Mathf.Rad2Deg;
+        float yaw = Mathf.Atan2(into.x, into.y) * Mathf.Rad2Deg + modelYaw;
         GameObject m = ModelProp(name, parent, M(wall, y), Quaternion.Euler(0f, yaw, 0f));
         Bounds b = RendererBounds(m);
         Vector3 inward = new Vector3(into.x, 0f, into.y);
@@ -339,8 +356,9 @@ public static partial class FloodedHouseBuilder
         return m;
     }
 
-    // On top of another model, `along` metres to its right (local x), turned `yaw` more.
-    private static GameObject On(Transform parent, string name, GameObject under, float along, float yaw = 0f)
+    // On top of another model, `along` metres to its right (local x) and `across` to its front (local z), turned `yaw`
+    // more. The height is the model's real surface at that point (TopAt), not its box top.
+    private static GameObject On(Transform parent, string name, GameObject under, float along, float yaw = 0f, float across = 0f)
     {
         if (under == null)
         {
@@ -348,9 +366,156 @@ public static partial class FloodedHouseBuilder
         }
 
         Bounds b = RendererBounds(under);
-        Vector3 at = new Vector3(b.center.x, b.max.y, b.center.z) + under.transform.right * along;
+        Vector3 at = new Vector3(b.center.x, b.max.y, b.center.z) + Right(under) * along + Forward(under) * across;
+        at.y = RestHeight(under, at, b) + 0.002f;
         GameObject m = ModelProp(name, parent, at, Quaternion.Euler(0f, under.transform.eulerAngles.y + yaw, 0f), false);
         return m;
+    }
+
+    // A model's right and front on the floor plane. Its transform carries the FBX root's axis conversion (a quarter turn
+    // about x), so transform.forward can point up or down: the encyclopedias asked for 0.45 m "in front" of the reading
+    // table landed on its centre (14/11).
+    private static Vector3 Right(GameObject model)
+    {
+        Vector3 r = model.transform.right;
+        r.y = 0f;
+        return r.sqrMagnitude > 1e-6f ? r.normalized : Vector3.right;
+    }
+
+    private static Vector3 Forward(GameObject model)
+    {
+        return Vector3.Cross(Right(model), Vector3.up);
+    }
+
+    // Where a thing set on top of `under` rests: its real surface there (TopAt), unless that lies deep in the model (the
+    // point fell into an open box's inside or a chest's open top, more than 15% of the height under the box top): then
+    // the box top, as the eye expects (14/11).
+    private static float RestHeight(GameObject under, Vector3 at, Bounds b)
+    {
+        float y = TopAt(under, at, b.max.y);
+        return y < b.max.y - 0.15f * b.size.y ? b.max.y : y;
+    }
+
+    // On a shelf of another model: its highest surface under `below` at the model's centre moved `along` (its right)
+    // and `across` (its front).
+    private static GameObject OnLevel(Transform parent, string name, GameObject under, float below, float along, float across, float yaw)
+    {
+        if (under == null)
+        {
+            return null;
+        }
+
+        Bounds b = RendererBounds(under);
+        Vector3 at = new Vector3(b.center.x, b.min.y, b.center.z) + Right(under) * along + Forward(under) * across;
+        at.y = TopAt(under, at, b.min.y, below) + 0.002f;
+        return ModelProp(name, parent, at, Quaternion.Euler(0f, under.transform.eulerAngles.y + yaw, 0f), false);
+    }
+
+    // A world point on the top of `under` at the plan position `at` (for things placed by plan coordinates).
+    private static Vector3 OnTop(GameObject under, Vector2 at)
+    {
+        Vector3 p = M(at, 0f);
+        p.y = TopAt(under, p, RendererBounds(under).max.y) + 0.002f;
+        return p;
+    }
+
+    // The height of `under`'s surface under a vertical line through `at` (x, z): the highest horizontal-ish triangle of
+    // its meshes there, below `below`. The box collider hides the real top (a moulded frame round a cabinet top stands
+    // 12 cm over it, a table top is narrower than the chairs round it, a shelf has planks): measured 14/11. Falls back
+    // to `fallback` with a warning when no triangle is there, which means the thing would hang beside the model.
+    private static float TopAt(GameObject under, Vector3 at, float fallback, float below = float.PositiveInfinity)
+    {
+        float best = float.NegativeInfinity;
+        foreach (MeshFilter mf in under.GetComponentsInChildren<MeshFilter>())
+        {
+            Mesh mesh = mf.sharedMesh;
+            if (mesh == null)
+            {
+                continue;
+            }
+
+            Vector3[] v = mesh.vertices;
+            int[] tri = mesh.triangles;
+            Transform t = mf.transform;
+            for (int i = 0; i < tri.Length; i += 3)
+            {
+                Vector3 a = t.TransformPoint(v[tri[i]]), b = t.TransformPoint(v[tri[i + 1]]), c = t.TransformPoint(v[tri[i + 2]]);
+                Vector3 n = Vector3.Cross(b - a, c - a);
+                if (Mathf.Abs(n.y) < 0.3f * n.magnitude)
+                {
+                    continue;
+                }
+
+                float d = (b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z);
+                if (Mathf.Abs(d) < 1e-9f)
+                {
+                    continue;
+                }
+
+                float l1 = ((b.z - c.z) * (at.x - c.x) + (c.x - b.x) * (at.z - c.z)) / d;
+                float l2 = ((c.z - a.z) * (at.x - c.x) + (a.x - c.x) * (at.z - c.z)) / d;
+                float l3 = 1f - l1 - l2;
+                if (l1 < -1e-4f || l2 < -1e-4f || l3 < -1e-4f)
+                {
+                    continue;
+                }
+
+                float y = l1 * a.y + l2 * b.y + l3 * c.y;
+                if (y > best && y < below)
+                {
+                    best = y;
+                }
+            }
+        }
+
+        if (float.IsNegativeInfinity(best))
+        {
+            Debug.LogWarning($"[FloodedHouse] Nothing of {under.name} under ({at.x:F2}, {at.z:F2}): resting on its box top {fallback:F2}");
+            return fallback;
+        }
+
+        return best;
+    }
+
+    // A prop placed by its centre on a wall's line, moved so its back stands 3 cm off the wall's face (the Poly Haven
+    // shelves and pipes sat half inside their walls, 14/11). `wall` is a point on the wall's centre line, `into` the room.
+    private static GameObject OffWall(GameObject m, Vector2 wall, Vector2 into)
+    {
+        Bounds b = RendererBounds(m);
+        Vector3 inward = new Vector3(into.x, 0f, into.y);
+        float backExtent = Mathf.Abs(Vector3.Dot(b.extents, new Vector3(Mathf.Abs(inward.x), 0f, Mathf.Abs(inward.z))));
+        float centreOffset = Vector3.Dot(b.center - M(wall, 0f), inward);
+        m.transform.position += inward * (WallHalf * PlanScale + 0.03f + backExtent - centreOffset);
+        return m;
+    }
+
+    // The first static surface a ray meets (the house's walls and floors, not the props): where a thing on a wall hangs.
+    internal static bool WallFace(Vector3 from, Vector3 direction, float maxDistance, out Vector3 point)
+    {
+        RaycastHit[] hits = Physics.RaycastAll(from, direction, maxDistance, ~0, QueryTriggerInteraction.Ignore);
+        System.Array.Sort(hits, (p, q) => p.distance.CompareTo(q.distance));
+        foreach (RaycastHit h in hits)
+        {
+            bool prop = false;
+            for (Transform t = h.transform; t != null; t = t.parent)
+            {
+                string n = t.name;
+                if (n == "Furniture" || n == "HouseArt" || n == "Story" || n == "MansionStory" || n == "Flora" || n == "GardenFlora" || n == "ManorLamps" || n == "LockedDoors" || n == "Abandoned" || n == "Player")
+                {
+                    prop = true;
+                    break;
+                }
+            }
+
+            if (!prop)
+            {
+                point = h.point;
+                return true;
+            }
+        }
+
+        point = from;
+        return false;
     }
 
     // On top of another model, lying flat with the file's +z face (a screen) turned up, `along` metres to its right,
@@ -363,7 +528,8 @@ public static partial class FloodedHouseBuilder
         }
 
         Bounds b = RendererBounds(under);
-        Vector3 at = new Vector3(b.center.x, b.max.y, b.center.z) + under.transform.right * along;
+        Vector3 at = new Vector3(b.center.x, b.max.y, b.center.z) + Right(under) * along;
+        at.y = RestHeight(under, at, b) + 0.002f;
         GameObject m = ModelProp(name, parent, at, Quaternion.Euler(-90f, under.transform.eulerAngles.y + yaw, 0f), false);
         Vector3 centre = RendererBounds(m).center;
         m.transform.position += new Vector3(at.x - centre.x, 0f, at.z - centre.z);
