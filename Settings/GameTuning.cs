@@ -263,6 +263,40 @@ public sealed class GameTuning : ScriptableObject
     [Tooltip("Afogado: quanto da vida uma mordida rastejando tira (0 a 1).")]
     [Range(0f, 1f)] public float drownedBiteDamage = 0.2f;
 
+    [Header("Criatura do ovo e flora da Dayse (modelos do Meshy, 16/11)")]
+    [Tooltip("Criatura do ovo (aracnídeo de cogumelos): velocidade ao perseguir, em m/s.")]
+    [Range(0.5f, 5f)] public float crabSpeed = 2.1f;
+
+    [Tooltip("Criatura do ovo: a que distância do jogador ela desperta e sai do ninho (metros, com linha de visão).")]
+    [Range(1f, 10f)] public float crabWakeDistance = 3.6f;
+
+    [Tooltip("Criatura do ovo: até onde ela se afasta do ninho antes de desistir e voltar (metros).")]
+    [Range(3f, 25f)] public float crabLeash = 9f;
+
+    [Tooltip("Criatura do ovo: quanto da vida um golpe das patas da frente tira (0 a 1).")]
+    [Range(0f, 1f)] public float crabBlowDamage = 0.22f;
+
+    [Tooltip("Criatura do ovo: quantos tiros de magnum ela aguenta.")]
+    [Range(1, 6)] public int crabShotsToKill = 2;
+
+    [Tooltip("A fruta que não é fruta: a que distância (metros) o filhote fechado abre as patas e foge, se o jogador estiver olhando para ele.")]
+    [Range(0.5f, 5f)] public float mimicTriggerDistance = 1.7f;
+
+    [Tooltip("A fruta que não é fruta: velocidade da fuga, em m/s.")]
+    [Range(0.5f, 5f)] public float mimicSpeed = 1.6f;
+
+    [Tooltip("Ovos do fungo vermelho: brilho de dentro (0 = só a luz do cômodo).")]
+    [Range(0f, 4f)] public float eggGlow = 0.45f;
+
+    [Tooltip("Ovos: opacidade da casca de frente para o olho (menor = vê-se mais o embrião).")]
+    [Range(0f, 1f)] public float eggOpacity = 0.3f;
+
+    [Tooltip("Fungo azul da Dayse: brilho próprio dos pontos claros da textura.")]
+    [Range(0f, 4f)] public float blueFungusGlow = 0.9f;
+
+    [Tooltip("Fungo amarelo da Dayse: brilho próprio (ele é mais apagado que o azul).")]
+    [Range(0f, 4f)] public float yellowFungusGlow = 0.25f;
+
     [Tooltip("Afogado: distância em que ele percebe o jogador com linha de visão livre (metros).")]
     [Range(3f, 30f)] public float drownedNoticeRange = 11f;
 

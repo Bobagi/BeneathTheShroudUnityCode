@@ -64,7 +64,8 @@ public static partial class FloodedHouseBuilder
         }
     }
 
-    private static void PlaceFungus(Transform parent, FungusModel model, int kind, Vector3 at, Vector3 outward, float size, float spin)
+    // `material`: its own material in place of the tinted glow of the scans (Dayse's fungus models, FloodedHouseDayseModels).
+    private static void PlaceFungus(Transform parent, FungusModel model, int kind, Vector3 at, Vector3 outward, float size, float spin, Material material = null)
     {
         GameObject m = ModelProp(model.name, parent, at, Quaternion.identity, false, false);
         m.transform.localScale *= size * model.size;
@@ -101,7 +102,7 @@ public static partial class FloodedHouseBuilder
         Vector3 lateral = Vector3.ProjectOnPlane(b.center - at, outward);
         m.transform.position += outward * (reach - 0.005f) - lateral;
 
-        Material mat = FungusGlowMaterial(model, kind);
+        Material mat = material != null ? material : FungusGlowMaterial(model, kind);
         foreach (Renderer r in m.GetComponentsInChildren<Renderer>())
         {
             r.sharedMaterial = mat;

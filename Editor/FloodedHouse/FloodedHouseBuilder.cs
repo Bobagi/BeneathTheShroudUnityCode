@@ -65,6 +65,10 @@ public static partial class FloodedHouseBuilder
         BuildLighting();
         BuildReflectionProbes();
         BuildStory();
+        // Dayse's models that sit on the furniture (16/11): the fruit on the kitchen counter with the closed young
+        // beside it, and the water in the buckets.
+        FruitMimicScene(Group("KitchenLife"), Object.FindAnyObjectByType<FirstPersonController>());
+        FillBuckets();
         // Hex tiling on the stochastic surfaces (13/11): Material() put every house material back on URP Lit above.
         Debug.Log("[FloodedHouse] hex tiling on " + HexTileMaterials.ApplyHouseDefault() + " materials.");
 

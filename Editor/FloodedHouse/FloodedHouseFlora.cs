@@ -91,17 +91,22 @@ public static partial class FloodedHouseBuilder
     {
         FloraMaterials();
         SporeMaterials();
+        eggShellMaterials.Clear();
+        blueFungusMaterials.Clear();
+        yellowFungusMaterials.Clear();
         Transform f = Group("Flora", parent);
         SporeStir(player);
         Random.State saved = Random.state;
         Random.InitState(1311);
         GardenFlora(f);
         LuminaColonies(f);
-        SilkFungus(f, new Vector2(10.25f, 13.3f), new Vector2(1f, -1f));
+        SilkFungus(f, new Vector2(10.25f, 13.3f), new Vector2(1f, -1f), player != null ? player.GetComponent<FirstPersonController>() : null);
+        YellowFungus(f);
         AnemoneWorms(f, M(-10.7f, 0f, 10.4f), 18, player);
         AnemoneWorms(f, M(-12.4f, 0f, 20.6f), 12, player);
         // Away from the vanity against the south wall (it grew through it, audit 22/10).
         AnemoneWorms(f, M(-12.6f, UF, 17.4f), 24, player);
+        TuneGrowths(f);
         Random.state = saved;
     }
 
@@ -140,8 +145,20 @@ public static partial class FloodedHouseBuilder
         PoolFlies(g, tree + Vector3.up * 0.55f);
 
         // The giant blue mushrooms: glowing caps, a halo on the ground, bubbles rising in the translucent stems.
+        // Dayse's mushroom goblet (Meshy Nkk823, modelled empty) takes their place as soon as it is in Props: its bowl
+        // holds the boiling water, made by Horror/Liquid ("Líquido só no shader").
+        bool goblet = HasModel("MushroomGoblet");
         foreach ((Vector3 at, float yaw) in new[] { (M(-5.3f, y, 13.1f), 140f), (M(5.6f, y, 17.9f), -40f) })
         {
+            if (goblet)
+            {
+                GameObject cup = ModelProp("MushroomGoblet", g, at, Quaternion.Euler(0f, yaw, 0f));
+                LiquidIn(cup, 0.9f, 0.22f, LiquidMaterial("LiquidBoilingBlue", new Color(0.05f, 0.2f, 0.32f), new Color(0.3f, 0.65f, 0.9f), 1f, 0.5f));
+                Halo(g, "FungusHaloBlue", at + Vector3.up * 0.02f, Vector3.up, 2.6f, new Color(0.3f, 0.6f, 1f));
+                Loop3D(cup.transform, "Ambience/boiling_loop.wav", 0.35f, 6f);
+                continue;
+            }
+
             GameObject m = ModelProp("GiantMushroom", g, at, Quaternion.Euler(0f, yaw, 0f));
             Material glow = m.GetComponentInChildren<Renderer>().sharedMaterial;
             glow.EnableKeyword("_EMISSION");
@@ -170,8 +187,24 @@ public static partial class FloodedHouseBuilder
         // The red palms, beating.
         foreach ((Vector3 at, float yaw, float scale) in new[] { (M(-3.4f, y, 12.2f), 200f, 1f), (M(-3.9f, y, 18.1f), 30f, 0.85f), (M(2.3f, UF, 25.4f), 160f, 0.55f) })
         {
-            GameObject palm = ModelProp("PulsePalm", g, at, Quaternion.Euler(0f, yaw, 0f));
-            palm.transform.localScale *= scale;
+            // Dayse's own heart palm (Meshy, 15/11; baked 2.6 m tall against the PulsePalm's 1.8 m) when it is there.
+            bool heart = HasModel("HeartPalm");
+            GameObject palm = ModelProp(heart ? "HeartPalm" : "PulsePalm", g, at, Quaternion.Euler(0f, yaw, 0f));
+            palm.transform.localScale *= heart ? scale * 0.8f : scale;
+            if (heart)
+            {
+                Bounds pb = RendererBounds(palm);
+                palm.transform.position += Vector3.up * (at.y - pb.min.y);
+                // Wet flesh, not pale wax: at full tint it went pink-white in the lightning (16/11, like the swamp
+                // tree on 13/11).
+                foreach (Renderer r in palm.GetComponentsInChildren<Renderer>())
+                {
+                    r.sharedMaterial.SetColor("_BaseColor", new Color(0.7f, 0.62f, 0.6f));
+                    r.sharedMaterial.SetFloat("_Smoothness", 0.75f);
+                    EditorUtility.SetDirty(r.sharedMaterial);
+                }
+            }
+
             palm.AddComponent<HeartbeatPulse>().Configure(AssetDatabase.LoadAssetAtPath<AudioClip>(ProjectPaths.Audio + "/Creature/palm_beat.wav"));
         }
     }
@@ -257,7 +290,7 @@ public static partial class FloodedHouseBuilder
         (Vector3 at, Vector3 outward, float size)[] patches =
         {
             // Pantry and china room ("fungos bioluminescentes"): walls, the floor, the ceiling corners.
-            (M(-14.24f, 1.3f, 18.6f), Vector3.right, 1.6f), (M(-14.24f, 2.6f, 22.4f), Vector3.right, 1.4f), (M(-12.2f, 0.012f, 21.5f), Vector3.up, 1.8f),
+            (M(-14.24f, 2.55f, 18.6f), Vector3.right, 1.6f), (M(-14.24f, 2.6f, 22.4f), Vector3.right, 1.4f), (M(-12.2f, 0.012f, 21.5f), Vector3.up, 1.8f),
             (M(-11.6f, GC - 0.012f, 18.4f), Vector3.down, 2.0f), (M(-9.86f, 1.6f, 20.4f), Vector3.left, 1.2f), (M(-7f, 1.9f, 24.44f), Vector3.back, 1.5f),
             (M(-8.2f, 0.012f, 22.6f), Vector3.up, 1.3f), (M(-6.5f, GC - 0.012f, 23.2f), Vector3.down, 1.6f),
             // The second bathroom upstairs ("fungos").
@@ -266,8 +299,17 @@ public static partial class FloodedHouseBuilder
             (M(1.5f, UF + 1.8f, 21.49f), Vector3.back, 1.6f), (M(-3f, UF + 0.012f, 20.4f), Vector3.up, 1.4f), (M(-1f, UC - 0.012f, 20.5f), Vector3.down, 2.0f),
             (M(-6f, UF + 2.2f, 21.49f), Vector3.back, 1.3f),
         };
+        bool models = BlueFungusReady();
         foreach ((Vector3 at, Vector3 outward, float size) in patches)
         {
+            if (models)
+            {
+                // Dayse's blue fungus in place of the film of powder; its spill on the surface stays.
+                BlueFungusPatch(c, at, outward, size);
+                Halo(c, "LuminaHalo", at + outward * 0.004f, outward, size * 1.6f, new Color(0.2f, 0.95f, 0.8f));
+                continue;
+            }
+
             GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
             quad.name = "Colony";
             Object.DestroyImmediate(quad.GetComponent<Collider>());
@@ -288,7 +330,7 @@ public static partial class FloodedHouseBuilder
     // A colony in a room's corner: `corner` is where two walls meet (on their room faces), `into` points into the room
     // along both walls (signs of x and z). Strands run from the ceiling near the corner down to the walls and the floor;
     // the eggs hang in them, dripping.
-    private static void SilkFungus(Transform parent, Vector2 corner, Vector2 into)
+    private static void SilkFungus(Transform parent, Vector2 corner, Vector2 into, FirstPersonController player = null)
     {
         Transform s = Group("SilkFungus", parent);
         List<(Vector3 top, Vector3 bottom)> strands = new List<(Vector3, Vector3)>();
@@ -315,7 +357,22 @@ public static partial class FloodedHouseBuilder
             }
 
             strands.Add((top, bottom));
-            Strand(s, top, bottom, Random.Range(0.12f, 0.35f), Random.Range(0.15f, 0.45f));
+            float strandWidth = Random.Range(0.12f, 0.35f), strandSag = Random.Range(0.15f, 0.45f);
+            // With Dayse's eggs and mounts in the corner (16/11), no ribbon may run through where they hang.
+            if (NestModelsReady() && CrossesNest(top, bottom, corner, into))
+            {
+                continue;
+            }
+
+            Strand(s, top, bottom, strandWidth, strandSag);
+        }
+
+        // 16/11: Dayse's own egg, embryo, ceiling mounts, ground nest and wall patches (FloodedHouseDayseModels); the
+        // generated eggs below stay as the fallback.
+        if (NestModelsReady())
+        {
+            SilkNestSet(s, corner, into, player);
+            return;
         }
 
         // The eggs, big as the drawing's scale (taller than a child), held in the strands near the corner.
