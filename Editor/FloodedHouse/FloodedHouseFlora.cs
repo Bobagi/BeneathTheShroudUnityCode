@@ -144,6 +144,20 @@ public static partial class FloodedHouseBuilder
         BioHaze(g, "SporeGlow", tree + Vector3.up * 3.2f, new Vector3(4.5f, 3.2f, 4.5f), 14, new Color(0.25f, 0.85f, 0.7f, 0.045f));
         PoolFlies(g, tree + Vector3.up * 0.55f);
 
+        // Dayse's aquatic reeds (Meshy, 16/11; purple buds on tall blades): tufts (scaled up to 1.5 to 2 m, over the
+        // garden's tall grass) round the edge of the contaminated
+        // pool (a Claude proposal, registered in the GDD), just past the swamp tree's roots (2.3 x 1.7 m from its axis).
+        if (HasModel("AquaticReeds"))
+        {
+            foreach ((float angle, float scale) in new[] { (15f, 1.4f), (75f, 1.15f), (150f, 1.55f), (215f, 1.3f), (290f, 1.05f) })
+            {
+                float a = angle * Mathf.Deg2Rad;
+                Vector3 edge = tree + new Vector3(Mathf.Cos(a) * 2.3f, 0.02f, Mathf.Sin(a) * 1.7f);
+                GameObject reeds = ModelProp("AquaticReeds", g, edge, Quaternion.Euler(0f, angle * 2.3f, 0f));
+                reeds.transform.localScale *= scale;
+            }
+        }
+
         // The giant blue mushrooms: glowing caps, a halo on the ground, bubbles rising in the translucent stems.
         // Dayse's mushroom goblet (Meshy Nkk823, modelled empty) takes their place as soon as it is in Props: its bowl
         // holds the boiling water, made by Horror/Liquid ("Líquido só no shader").
@@ -152,8 +166,28 @@ public static partial class FloodedHouseBuilder
         {
             if (goblet)
             {
+                // Remodelled by Dayse on 17/11 (two open cups on two stems, textured by Meshy): one liquid per cup.
                 GameObject cup = ModelProp("MushroomGoblet", g, at, Quaternion.Euler(0f, yaw, 0f));
-                LiquidIn(cup, 0.9f, 0.22f, LiquidMaterial("LiquidBoilingBlue", new Color(0.05f, 0.2f, 0.32f), new Color(0.3f, 0.65f, 0.9f), 1f, 0.5f));
+                foreach (Renderer r in cup.GetComponentsInChildren<Renderer>())
+                {
+                    // The same wet, faintly glowing flesh as the giant mushroom it replaces (its veins carry the glow), at about
+                    // two thirds of the bake: at 0.8 it burnt white under the torch (18/11), like the egg shell on 16/11.
+                    Material flesh = r.sharedMaterial;
+                    flesh.SetColor("_BaseColor", new Color(0.62f, 0.64f, 0.68f));
+                    flesh.SetFloat("_Smoothness", 0.78f);
+                    flesh.EnableKeyword("_EMISSION");
+                    flesh.SetTexture("_EmissionMap", flesh.GetTexture("_BaseMap"));
+                    flesh.SetColor("_EmissionColor", new Color(0.3f, 0.55f, 0.75f) * 0.12f);
+                    flesh.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                    EditorUtility.SetDirty(flesh);
+                }
+
+                // Dark water, not paint: a light surface colour lit by the torch went milk-white (18/11); the glow keeps the
+                // blue. The cups measured on the mesh (18/11, model space, pivot at the foot): the big one's rim dips to 2.33 m
+                // round (0.08, -0.03), 0.53 m across the radius, floor at 1.92; the small one is tilted, its rim's lowest
+                // point at 1.48 m round (-0.28, 0.26), radius 0.30, floor at 1.22.
+                LiquidInBowls(cup, new[] { (new Vector3(0.08f, 2.33f, -0.03f), 0.5f, 1.92f), (new Vector3(-0.28f, 1.48f, 0.26f), 0.27f, 1.22f) }, 0.82f, 0.1f,LiquidMaterial("LiquidBoilingBlue", new Color(0.02f, 0.08f, 0.14f), new Color(0.07f, 0.24f, 0.36f), 1f, 0.6f));
+                Bubbles(g, at + Vector3.up * 0.15f);
                 Halo(g, "FungusHaloBlue", at + Vector3.up * 0.02f, Vector3.up, 2.6f, new Color(0.3f, 0.6f, 1f));
                 Loop3D(cup.transform, "Ambience/boiling_loop.wav", 0.35f, 6f);
                 continue;

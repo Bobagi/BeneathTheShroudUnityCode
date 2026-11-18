@@ -948,6 +948,48 @@ public static partial class FloodedHouseBuilder
         return volume;
     }
 
+    // A model with several open bowls (Dayse's mushroom goblet, 17/11: a big cup and a small tilted one on two stems)
+    // gets one liquid per bowl. Each bowl is given in the model's own space as measured on its mesh (the lowest point
+    // of the rim, the rim's centre and inner radius, and the floor): guessing them from the vertices failed, the cups
+    // overlap seen from above and their steep walls barely face up. A bowl is round, not a bucket: the volume is a
+    // flattened sphere centred on the rim whose lower half sits inside the cup, so its walls never poke through the shell.
+    private static List<GameObject> LiquidInBowls(GameObject container, (Vector3 rim, float radius, float floorY)[] bowls, float fill, float inset, Material liquid)
+    {
+        var made = new List<GameObject>();
+        Transform t = container.transform;
+        // The measures are in the upright model (the FBX root's axis conversion already applied); ModelProp puts the
+        // placement's yaw on top of that conversion, so it is taken back out here.
+        GameObject source = PrefabUtility.GetCorrespondingObjectFromSource(container);
+        Quaternion yaw = t.rotation * Quaternion.Inverse(source != null ? source.transform.localRotation : Quaternion.identity);
+        float s = source != null ? t.lossyScale.y / Mathf.Max(Mathf.Abs(source.transform.lossyScale.y), 1e-4f) : 1f;
+        for (int k = 0; k < bowls.Length; k++)
+        {
+            (Vector3 rim, float radius, float floorY) = bowls[k];
+            float depth = (rim.y - floorY) * s;
+            float r = radius * s;
+            Vector3 centre = t.position + yaw * (rim * s);
+            GameObject volume = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            volume.name = "Liquid" + (k + 1);
+            Object.DestroyImmediate(volume.GetComponent<Collider>());
+            volume.transform.SetParent(t, true);
+            volume.transform.position = centre;
+            volume.transform.rotation = Quaternion.identity;
+            // A sphere of diameter 1: twice the radius across, twice the depth down (only the lower half is kept).
+            SetWorldScale(volume.transform, new Vector3(r * 2f * (1f - inset), depth * 2f * (1f - inset * 0.5f), r * 2f * (1f - inset)));
+            MeshRenderer mr = volume.GetComponent<MeshRenderer>();
+            Material instance = Material(liquid.name + "_Bowl" + Mathf.RoundToInt(fill * 100f), liquid.shader);
+            instance.CopyPropertiesFromMaterial(liquid);
+            // The level in metres over the rim (negative: below it), the same in every bowl.
+            instance.SetFloat("_FillLevel", -depth * (1f - fill));
+            instance.renderQueue = liquid.renderQueue;
+            EditorUtility.SetDirty(instance);
+            mr.sharedMaterial = instance;
+            mr.shadowCastingMode = ShadowCastingMode.Off;
+            made.Add(volume);
+        }
+
+        return made;
+    }
     private static void SetWorldScale(Transform t, Vector3 world)
     {
         Vector3 parent = t.parent != null ? t.parent.lossyScale : Vector3.one;
