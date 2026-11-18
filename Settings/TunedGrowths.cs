@@ -1,7 +1,7 @@
 using UnityEngine;
 
 // Carries the GameTuning values of Dayse's growths (16/11) to their materials: the eggs' inner glow and how much of
-// the embryo shows through the shell, the glow of the blue and of the yellow fungus. Listens to GameTuning.Changed,
+// the embryo shows through the shell, the glow of the blue and of the yellow fungus, of the reeds' buds (18/11). Listens to GameTuning.Changed,
 // so the sliders act at once, in Play Mode and out of it. One of these sits on the house's flora group; the builder
 // hands it the materials.
 [ExecuteAlways]
@@ -27,8 +27,12 @@ public sealed class TunedGrowths : MonoBehaviour
     [SerializeField]
     private Color yellowTint = new Color(0.9f, 1f, 0.35f);
 
-    public void Configure(Material[] eggs, Material[] blue, Material[] yellow)
+    [SerializeField]
+    private Material[] reedBuds = new Material[0];
+
+    public void Configure(Material[] eggs, Material[] blue, Material[] yellow, Material[] reeds = null)
     {
+        reedBuds = reeds ?? new Material[0];
         eggShells = eggs;
         blueFungus = blue;
         yellowFungus = yellow;
@@ -68,6 +72,15 @@ public sealed class TunedGrowths : MonoBehaviour
             if (m != null)
             {
                 m.SetColor(EmissionColor, blueTint * tuning.blueFungusGlow);
+            }
+        }
+
+        // The reeds' emission map is already the warm colour of the buds: the slider only scales it.
+        foreach (Material m in reedBuds)
+        {
+            if (m != null)
+            {
+                m.SetColor(EmissionColor, Color.white * tuning.reedBudGlow);
             }
         }
 

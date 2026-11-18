@@ -297,6 +297,9 @@ public sealed class GameTuning : ScriptableObject
     [Tooltip("Fungo amarelo da Dayse: brilho próprio (ele é mais apagado que o azul).")]
     [Range(0f, 4f)] public float yellowFungusGlow = 0.25f;
 
+    [Tooltip("Juncos aquáticos da Dayse (poça do jardim): brilho do miolo amarelo dos botões.")]
+    [Range(0f, 4f)] public float reedBudGlow = 1f;
+
     [Tooltip("Afogado: distância em que ele percebe o jogador com linha de visão livre (metros).")]
     [Range(3f, 30f)] public float drownedNoticeRange = 11f;
 

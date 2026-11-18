@@ -94,6 +94,7 @@ public static partial class FloodedHouseBuilder
         eggShellMaterials.Clear();
         blueFungusMaterials.Clear();
         yellowFungusMaterials.Clear();
+        reedBudMaterials.Clear();
         Transform f = Group("Flora", parent);
         SporeStir(player);
         Random.State saved = Random.state;
@@ -155,6 +156,20 @@ public static partial class FloodedHouseBuilder
                 Vector3 edge = tree + new Vector3(Mathf.Cos(a) * 2.3f, 0.02f, Mathf.Sin(a) * 1.7f);
                 GameObject reeds = ModelProp("AquaticReeds", g, edge, Quaternion.Euler(0f, angle * 2.3f, 0f));
                 reeds.transform.localScale *= scale;
+            }
+
+            // The warm cores of the buds glow faintly, as in her concept (fungus_emission.py keeps only their
+            // yellow): without it the reeds were invisible in the dark garden unless the torch hit them (18/11).
+            Texture2D budGlow = AssetDatabase.LoadAssetAtPath<Texture2D>(ProjectPaths.PropModels + "/AquaticReeds/AquaticReeds_Emission.png");
+            Material reedMat = ModelPropMaterial(ProjectPaths.PropModels + "/AquaticReeds", "AquaticReeds");
+            if (budGlow != null && reedMat != null)
+            {
+                reedMat.EnableKeyword("_EMISSION");
+                reedMat.SetTexture("_EmissionMap", budGlow);
+                reedMat.SetColor("_EmissionColor", Color.white * GameTuning.Instance.reedBudGlow);
+                reedBudMaterials.Add(reedMat);
+                reedMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                EditorUtility.SetDirty(reedMat);
             }
         }
 

@@ -35,6 +35,7 @@ public static partial class FloodedHouseBuilder
     private static readonly List<Material> eggShellMaterials = new List<Material>();
     private static readonly List<Material> blueFungusMaterials = new List<Material>();
     private static readonly List<Material> yellowFungusMaterials = new List<Material>();
+    private static readonly List<Material> reedBudMaterials = new List<Material>();
 
     private static bool HasModel(string name) =>
         AssetDatabase.LoadAssetAtPath<GameObject>(ProjectPaths.PropModels + "/" + name + "/" + name + ".fbx") != null;
@@ -1017,6 +1018,6 @@ public static partial class FloodedHouseBuilder
     private static void TuneGrowths(Transform flora)
     {
         TunedGrowths tuned = flora.gameObject.AddComponent<TunedGrowths>();
-        tuned.Configure(eggShellMaterials.ToArray(), blueFungusMaterials.ToArray(), yellowFungusMaterials.ToArray());
+        tuned.Configure(eggShellMaterials.ToArray(), blueFungusMaterials.ToArray(), yellowFungusMaterials.ToArray(), reedBudMaterials.ToArray());
     }
 }
