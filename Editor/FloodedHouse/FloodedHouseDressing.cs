@@ -373,7 +373,7 @@ public static partial class FloodedHouseBuilder
         thunder.spatialBlend = 0f;
         thunderObject.AddComponent<AmbienceSource>().SetKind(AmbienceSource.Kind.Thunder);
         // The sea breaking on the rocks around the house, from two sides; muffled indoors like the rain.
-        foreach (Vector3 shore in new[] { M(2f, -1.5f, 45f), M(-31f, -1.5f, 10f), M(33f, -1.5f, 6f) })
+        foreach (Vector3 shore in new[] { Shore(2f, 45f, -1.5f), Shore(-31f, 10f, -1.5f), Shore(33f, 6f, -1.5f) })
         {
             GameObject seaSound = new GameObject("SeaSound");
             seaSound.transform.SetParent(story, false);

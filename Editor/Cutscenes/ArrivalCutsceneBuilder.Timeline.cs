@@ -213,8 +213,11 @@ public static partial class ArrivalCutsceneBuilder
         Move(creature, 27.6f, 29.4f, tentacle.transform, rise, 0.6f, false, false);
         Move(creature, 30.6f, 32.6f, tentacle.transform, sink, 0.5f, false, false);
 
-        // Music, 2D, under the storm's own sound.
-        AudioClip theme = AssetDatabase.LoadAssetAtPath<AudioClip>(ProjectPaths.Audio + "/Music/arrival_theme.wav");
+        // Music, 2D, under the storm's own sound. Dayse's own piece for the arrival (WhatsApp 20/11: "no começo, chegando
+        // na ilha"; her two recordings joined with a 2 s crossfade, SourceAssets/Downloads/Music/Dayse_2026-11-20); the
+        // older theme stays as the fallback.
+        AudioClip theme = AssetDatabase.LoadAssetAtPath<AudioClip>(ProjectPaths.Audio + "/Music/arrival_theme_dayse.wav")
+            ?? AssetDatabase.LoadAssetAtPath<AudioClip>(ProjectPaths.Audio + "/Music/arrival_theme.wav");
         if (theme != null)
         {
             AudioSource musicSource = directorObject.AddComponent<AudioSource>();

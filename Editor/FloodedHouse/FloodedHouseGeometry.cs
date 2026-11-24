@@ -208,7 +208,9 @@ public static partial class FloodedHouseBuilder
         const float top = -0.3f, bottom = -2.9f;
         // Island, in manor coordinates; open over the basement (its walls included: a scene rectangle, the basement does
         // not move with the plan scale) and over the courtyard's sunken garden.
-        Rect island = Rect.MinMaxRect(-30f, -14f, 34f, 44f);
+        // 24/11 (Dayse: "a casa está muito perto do mar", and the open part bigger): the island grows IslandGrow times
+        // round its centre, which is the house's; the shore props move out with it (Shore()).
+        Rect island = Rect.MinMaxRect(2f - 32f * IslandGrow, 15f - 29f * IslandGrow, 2f + 32f * IslandGrow, 15f + 29f * IslandGrow);
         Vector3 islandA = M(island.xMin, 0f, island.yMin), islandB = M(island.xMax, 0f, island.yMax);
         Rect basementHole = Rect.MinMaxRect(9.95f + ManorOffset.x, 13.55f + ManorOffset.z, 18.65f + ManorOffset.x, 20.27f + ManorOffset.z);
         GroundAround(outside, Rect.MinMaxRect(islandA.x, islandA.z, islandB.x, islandB.z), bottom, top, basementHole, MRect(LunaManor.Garden));
@@ -227,21 +229,21 @@ public static partial class FloodedHouseBuilder
         Box("ServiceYard", outside, M(15.15f, -0.25f, 15.55f), M(17f, -0.05f, 20.27f), concrete);
 
         // Everything outside is Backdrop(): lightest LOD, no shadow casting (see the note there).
-        Backdrop(Prop("coast_rocks_01", outside, M(4f, -2.3f, 46f), 180f, false));
-        Backdrop(Prop("coast_rocks_01", outside, M(-18f, -2.3f, 45.5f), 200f, false));
-        Backdrop(Prop("coast_rocks_02", outside, M(-32f, -2.2f, 10f), 70f, false));
-        Backdrop(Prop("coast_rocks_02", outside, M(36f, -2.2f, 12f), 250f, false));
-        Backdrop(Prop("coast_rocks_02", outside, M(-24f, -2.2f, -16f), 20f, false));
-        Backdrop(Prop("coast_rocks_02", outside, M(26f, -2.2f, -16f), 150f, false));
-        Backdrop(Prop("coast_land_rocks_03", outside, M(-25f, -0.5f, 30f), 20f, false));
-        Backdrop(Prop("coast_land_rocks_03", outside, M(27f, -0.5f, 38f), 160f, false));
-        Backdrop(Prop("coast_land_rocks_03", outside, M(29f, -0.5f, 2f), 95f, false));
+        Backdrop(Prop("coast_rocks_01", outside, Shore(4f, 46f, -2.3f), 180f, false));
+        Backdrop(Prop("coast_rocks_01", outside, Shore(-18f, 45.5f, -2.3f), 200f, false));
+        Backdrop(Prop("coast_rocks_02", outside, Shore(-32f, 10f, -2.2f), 70f, false));
+        Backdrop(Prop("coast_rocks_02", outside, Shore(36f, 12f, -2.2f), 250f, false));
+        Backdrop(Prop("coast_rocks_02", outside, Shore(-24f, -16f, -2.2f), 20f, false));
+        Backdrop(Prop("coast_rocks_02", outside, Shore(26f, -16f, -2.2f), 150f, false));
+        Backdrop(Prop("coast_land_rocks_03", outside, Shore(-25f, 30f, -0.5f), 20f, false));
+        Backdrop(Prop("coast_land_rocks_03", outside, Shore(27f, 38f, -0.5f), 160f, false));
+        Backdrop(Prop("coast_land_rocks_03", outside, Shore(29f, 2f, -0.5f), 95f, false));
 
         // Dead mangrove: bleached trunks standing in the mud and out in the shallows.
         Vector3[] trunks =
         {
-            M(-24f, top, -6f), M(-26f, top, 22f), M(24f, top, -8f), M(29f, top, 20f), M(-8f, top, 40f), M(14f, top, 41f),
-            M(-22f, top, 8f), M(26f, top, 28f), M(-12f, -2.6f, 50f), M(20f, -2.6f, 49f), M(-36f, -2.6f, 0f), M(39f, -2.6f, -4f),
+            Shore(-24f, -6f, top), Shore(-26f, 22f, top), Shore(24f, -8f, top), Shore(29f, 20f, top), Shore(-8f, 40f, top), Shore(14f, 41f, top),
+            Shore(-22f, 8f, top), Shore(26f, 28f, top), Shore(-12f, 50f, -2.6f), Shore(20f, 49f, -2.6f), Shore(-36f, 0f, -2.6f), Shore(39f, -4f, -2.6f),
         };
         for (int i = 0; i < trunks.Length; i++)
         {
@@ -249,18 +251,160 @@ public static partial class FloodedHouseBuilder
             trunk.name = "DeadMangrove" + i;
         }
 
+        IslandScrub(outside, island);
+
         // Storm sea: a subdivided grid whose vertices the StormSea shader moves on the GPU (Gerstner
         // waves). The island is left out so the sea never cuts through the house or the flooded basement.
         GameObject seaObject = new GameObject("Sea");
         seaObject.transform.SetParent(outside, false);
         seaObject.transform.position = new Vector3(0f, WaterLevel, 0f);
-        seaObject.AddComponent<MeshFilter>().sharedMesh = SeaMesh(280f, 2f, Rect.MinMaxRect(islandA.x - 0.5f, islandA.z - 0.5f, islandB.x + 0.5f, islandB.z + 0.5f));
+        seaObject.AddComponent<MeshFilter>().sharedMesh = SeaMesh(400f, 2f, Rect.MinMaxRect(islandA.x - 0.5f, islandA.z - 0.5f, islandB.x + 0.5f, islandB.z + 0.5f));
         MeshRenderer seaRenderer = seaObject.AddComponent<MeshRenderer>();
         seaRenderer.sharedMaterial = sea;
         seaRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         seaObject.AddComponent<SeaWaves>();
 
         BuildRain(outside);
+    }
+
+    // The ground the grown island added round the house (24/11, Dayse: the open part bigger, the sea further): the
+    // big island's own plants (the arrival's trees, bushes and low plants, ArrivalCutsceneBuilder) on a jittered
+    // grid with clearings from a broad noise, thinner towards the shore, plus more dead mangrove at the waterline.
+    // Kept off the house and 4 m round it, the dirt road to the sea and the open front approach. No shadows: it is
+    // all seen at night in the rain, and the moon cascades drew the old rocks at full cost (Backdrop()).
+    private static void IslandScrub(Transform outside, Rect island)
+    {
+        Transform group = Group("IslandScrub", outside);
+        System.Random random = new System.Random(2411);
+        Rect house = Rect.MinMaxRect(-24f, -5f, 28f, 38f);
+        Rect road = Rect.MinMaxRect(-4f, 26f, 4.2f, island.yMax);
+        Rect front = Rect.MinMaxRect(-9f, island.yMin, 9f, 0f);
+        (string near, string far, float min, float max)[] woody = { ("IslandTree", "IslandTreeFar", 0.8f, 1.25f), ("Searsia", "SearsiaFar", 0.8f, 1.3f) };
+        string[] low = { "Fern", "Sorrel", "Shrub2", "Shrub3", "Shrub4", "Calathea" };
+        int trees = 0, plants = 0;
+        const float step = 3.6f;
+        for (float z = island.yMin + 3f; z < island.yMax - 3f; z += step)
+        {
+            for (float x = island.xMin + 3f; x < island.xMax - 3f; x += step)
+            {
+                float px = x + ((float)random.NextDouble() - 0.5f) * step * 0.9f;
+                float pz = z + ((float)random.NextDouble() - 0.5f) * step * 0.9f;
+                Vector2 p = new Vector2(px, pz);
+                if (house.Contains(p) || road.Contains(p) || front.Contains(p))
+                {
+                    continue;
+                }
+
+                // 0 at the shore, 1 well inland: fewer and lower plants on the bank.
+                float shore = Mathf.Min(Mathf.Min(px - island.xMin, island.xMax - px), Mathf.Min(pz - island.yMin, island.yMax - pz));
+                float inland = Mathf.InverseLerp(3f, 14f, shore);
+                float woods = Mathf.PerlinNoise(px * 0.06f + 13f, pz * 0.06f + 41f);
+                double roll = random.NextDouble();
+                Vector3 at = M(px, -0.3f, pz);
+                float yaw = (float)random.NextDouble() * 360f;
+                if (woods > 0.45f && roll < 0.5f * inland)
+                {
+                    var w = woody[roll < 0.25f * inland ? 0 : 1];
+                    if (ArrivalCutsceneBuilder.PlaceWoody(group, w.near, w.far, at, yaw, Mathf.Lerp(w.min, w.max, (float)random.NextDouble())))
+                    {
+                        trees++;
+                    }
+                }
+                else if (woods > 0.25f && roll < 0.85f)
+                {
+                    // A small clump of low plants round the cell.
+                    for (int k = 0; k < 3; k++)
+                    {
+                        Vector3 off = M(px + ((float)random.NextDouble() - 0.5f) * 3f, -0.3f, pz + ((float)random.NextDouble() - 0.5f) * 3f);
+                        if (ArrivalCutsceneBuilder.PlacePlant(low[random.Next(low.Length)], group, off, (float)random.NextDouble() * 360f, Mathf.Lerp(0.9f, 1.6f, (float)random.NextDouble()) * Mathf.Lerp(0.7f, 1f, inland)))
+                        {
+                            plants++;
+                        }
+                    }
+                }
+                else if (shore < 9f && roll > 0.9f)
+                {
+                    GameObject trunk = Backdrop(Prop("dead_quiver_trunk", group, at, Quaternion.Euler(Random.Range(-14f, 14f), yaw, Random.Range(-14f, 14f)), false, Random.Range(1.1f, 1.7f)));
+                    trunk.name = "DeadMangroveShore";
+                }
+            }
+        }
+
+        int tufts = IslandGrass(group, island, house, road, front);
+        Debug.Log("[FloodedHouse] island grass: " + tufts + " tufts");
+        Debug.Log("[FloodedHouse] island scrub: " + trees + " trees and bushes, " + plants + " low plants");
+    }
+
+    // Wild grass over the island's mud (the garden's tuft and olive material, GardenTuft from BuildGarden), in patches
+    // from a broad noise, thin on the bank; one combined mesh per 16 m block so the blocks behind the camera cull.
+    private static int IslandGrass(Transform group, Rect island, Rect house, Rect road, Rect front)
+    {
+        Mesh tuft = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(ProjectPaths.Root + "/Cutscenes/GrassTuft.asset");
+        // The garden's olive tuft material (BuildGarden made it earlier in the rebuild).
+        Material grass = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(ProjectPaths.FloodedHouseMaterials + "/GardenTuft.mat");
+        if (tuft == null || grass == null)
+        {
+            Debug.LogWarning("[FloodedHouse] island grass: tuft mesh or GardenTuft material missing");
+            return 0;
+        }
+
+        System.Random random = new System.Random(2412);
+        const float block = 13f;
+        int total = 0;
+        for (float bz = island.yMin; bz < island.yMax; bz += block)
+        {
+            for (float bx = island.xMin; bx < island.xMax; bx += block)
+            {
+                List<CombineInstance> parts = new List<CombineInstance>();
+                for (int i = 0; i < 520; i++)
+                {
+                    float px = bx + (float)random.NextDouble() * block, pz = bz + (float)random.NextDouble() * block;
+                    Vector2 p = new Vector2(px, pz);
+                    if (!island.Contains(p) || house.Contains(p) || road.Contains(p))
+                    {
+                        continue;
+                    }
+
+                    float shore = Mathf.Min(Mathf.Min(px - island.xMin, island.xMax - px), Mathf.Min(pz - island.yMin, island.yMax - pz));
+                    float patch = Mathf.PerlinNoise(px * 0.09f + 5f, pz * 0.09f + 77f);
+                    float keep = Mathf.InverseLerp(0.2f, 0.6f, patch) * Mathf.InverseLerp(1f, 7f, shore) * (front.Contains(p) ? 0.35f : 1f);
+                    if (random.NextDouble() > keep)
+                    {
+                        continue;
+                    }
+
+                    float w = Mathf.Lerp(0.5f, 1f, (float)random.NextDouble()), h = Mathf.Lerp(0.35f, 0.95f, (float)random.NextDouble()) * Mathf.Lerp(0.7f, 1f, keep);
+                    parts.Add(new CombineInstance { mesh = tuft, transform = Matrix4x4.TRS(M(px, -0.3f, pz), Quaternion.Euler(0f, (float)random.NextDouble() * 360f, 0f), new Vector3(w, h, w)) });
+                }
+
+                if (parts.Count == 0)
+                {
+                    continue;
+                }
+
+                Mesh combined = new Mesh { name = "IslandGrass", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+                combined.CombineMeshes(parts.ToArray(), true, true);
+                combined.RecalculateBounds();
+                GameObject go = new GameObject("IslandGrass");
+                go.transform.SetParent(group, false);
+                go.AddComponent<MeshFilter>().sharedMesh = combined;
+                MeshRenderer r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = grass;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                total += parts.Count;
+            }
+        }
+
+        return total;
+    }
+
+    // How much bigger the island is than the 29/10 one, round its centre (manor x 2, z 15: the middle of the house).
+    internal const float IslandGrow = 1.6f;
+
+    // A point of the 29/10 shore (manor coordinates), pushed out to the grown island's shore, in scene coordinates.
+    internal static Vector3 Shore(float x, float z, float y = 0f)
+    {
+        return M(2f + (x - 2f) * IslandGrow, y, 15f + (z - 15f) * IslandGrow);
     }
 
     // The island's mud crown as boxes covering `outer` (scene x/z) except the holes: the plane cut on every hole edge,

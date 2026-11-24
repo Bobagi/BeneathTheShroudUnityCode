@@ -590,6 +590,11 @@ public static partial class ArrivalCutsceneBuilder
 
     // A tree or bush with its far version: both placed the same, under one LODGroup (the near one under ~7% of the
     // screen's height gives way to the far one, which is culled under 0.5%).
+    // The same island's plants for the house scene's grown island (FloodedHouseGeometry.IslandScrub, 24/11).
+    internal static bool PlaceWoody(Transform group, string near, string far, Vector3 at, float yaw, float scale) => Woody(group, near, far, at, yaw, scale, false);
+
+    internal static bool PlacePlant(string name, Transform parent, Vector3 position, float yaw, float scale) => Plant(name, parent, position, yaw, scale, false);
+
     private static bool Woody(Transform group, string near, string far, Vector3 at, float yaw, float scale, bool shadows)
     {
         GameObject root = new GameObject(near);

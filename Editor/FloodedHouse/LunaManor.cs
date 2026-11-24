@@ -1300,7 +1300,9 @@ public static class LunaManor
         Block("Sleeper", ob, new Vector3(-10.8f, 0.1f, 31.1f), 0f, new Vector3(1.5f, 0.2f, 0.2f), p.trim, true);
 
         // The dirt road from the vestibule's door down to the sea.
-        Slab("Road", ob, Box(R(-1.5f, 26.8f, 1.7f, 34.5f)), GardenY - 0.2f, GardenY + 0.02f, p.garden, p.garden, p.garden, true);
+        // 24/11: the island grew 1.6 times round the house (FloodedHouseBuilder.IslandGrow), so the road runs on to
+        // keep the same 9.5 m short of the shore (it ended at 34.5 with the shore at 44; the shore is now at 61.4).
+        Slab("Road", ob, Box(R(-1.5f, 26.8f, 1.7f, 51.9f)), GardenY - 0.2f, GardenY + 0.02f, p.garden, p.garden, p.garden, true);
         Block("RoadStep", ob, new Vector3(0.1f, -0.13f, 27.05f), 0f, new Vector3(2f, 0.26f, 0.5f), p.stone, true);
     }
 
