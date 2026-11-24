@@ -150,7 +150,9 @@ public static partial class FloodedHouseBuilder
         // pool (a Claude proposal, registered in the GDD), just past the swamp tree's roots (2.3 x 1.7 m from its axis).
         if (HasModel("AquaticReeds"))
         {
-            foreach ((float angle, float scale) in new[] { (15f, 1.4f), (75f, 1.15f), (150f, 1.55f), (215f, 1.3f), (290f, 1.05f) })
+            // No tuft between 90 and 195 degrees: that side of the pool is the grand stair, and the tuft at 150 went 33 cm
+            // into its newel post (HouseAudit, 24/11).
+            foreach ((float angle, float scale) in new[] { (15f, 1.4f), (75f, 1.15f), (200f, 1.55f), (240f, 1.3f), (290f, 1.05f) })
             {
                 float a = angle * Mathf.Deg2Rad;
                 Vector3 edge = tree + new Vector3(Mathf.Cos(a) * 2.3f, 0.02f, Mathf.Sin(a) * 1.7f);
