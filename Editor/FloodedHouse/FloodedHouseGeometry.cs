@@ -1,0 +1,531 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+// Walls, floors, stairs and water of the flooded house. Coordinates follow the layout comment in
+// FloodedHouseBuilder; every wall is 0.25 to 0.3 m thick and sits outside the interior span it
+// bounds, so interiors read as clean rectangles in the numbers below.
+public static partial class FloodedHouseBuilder
+{
+    // Ground floor interior: x -6..6, z -5..5, floor 0, ceiling 3.
+    // Stair hole in the floor: x -6..-4.8, z -2.24..1.0 (12 steps down to the landing at -2.3).
+    private const float StairTopZ = 1.0f;
+    private const float StairBottomZ = -2.24f;
+    // The slab opening runs past the last step, over the landing: at the bottom of the flight the
+    // body (radius 0.3 m ahead of the feet) otherwise hits its head on the ground-floor slab.
+    private const float StairwellSouthZ = -3.1f;
+    private const float FloodStartY = -0.1f;
+
+    private static WaterVolume floodVolume;
+    private static Transform floodSurfaces;
+    private const float LandingY = -2.3f;
+    private const int StairSteps = 12;
+
+    private static void WindowFrame(Transform parent, string name, bool alongX, float from, float to, float depth, float bottom, float top, int panes)
+    {
+        Transform frame = Group(name, parent);
+        const float t = 0.07f;
+        // (run, height, depth) to world, whichever axis the wall runs along.
+        System.Func<float, float, float, Vector3> P = (r, y, d) => alongX ? new Vector3(r, y, d) : new Vector3(d, y, r);
+        // Everything inside the opening: the sill sits on the wall below it (it used to sink into the
+        // tiled wall and flicker against it) and the end posts stand against the jambs, not half in them.
+        Box("Sill", frame, P(from, bottom, depth - 0.2f), P(to, bottom + t * 0.6f, depth + 0.2f), doorPaint);
+        Box("Head", frame, P(from, top - t, depth - 0.12f), P(to, top, depth + 0.12f), doorPaint);
+        for (int i = 0; i <= panes; i++)
+        {
+            float r = Mathf.Lerp(from + t * 0.5f, to - t * 0.5f, i / (float)panes);
+            Box("Mullion" + i, frame, P(r - t * 0.5f, bottom + t * 0.6f, depth - 0.05f), P(r + t * 0.5f, top - t, depth + 0.05f), doorPaint);
+        }
+
+        float mid = Mathf.Lerp(bottom, top, 0.55f);
+        Box("Transom", frame, P(from, mid - t * 0.5f, depth - 0.05f), P(to, mid + t * 0.5f, depth + 0.05f), doorPaint);
+        GameObject pane = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        pane.name = "Glass";
+        Object.DestroyImmediate(pane.GetComponent<Collider>());
+        pane.transform.SetParent(frame, false);
+        pane.transform.position = P((from + to) * 0.5f, (bottom + top) * 0.5f, depth);
+        pane.transform.rotation = alongX ? Quaternion.identity : Quaternion.Euler(0f, 90f, 0f);
+        pane.transform.localScale = new Vector3(to - from, top - bottom, 1f);
+        pane.GetComponent<MeshRenderer>().sharedMaterial = glass;
+    }
+
+    // Basement interior: x -6..2, z -5..1, floor -4.5, ceiling -0.25 (the ground-floor slab).
+    private static void BuildBasement()
+    {
+        Transform b = Group("Basement");
+
+        // Floor with the square shaft down to the lab at x -2..0, z -4..-2.
+        Box("Floor_N", b, new Vector3(-6.3f, -4.8f, -2f), new Vector3(2.3f, -4.5f, 1.3f), concrete);
+        Box("Floor_S", b, new Vector3(-6.3f, -4.8f, -5.3f), new Vector3(2.3f, -4.5f, -4f), concrete);
+        Box("Floor_W", b, new Vector3(-6.3f, -4.8f, -4f), new Vector3(-2f, -4.5f, -2f), concrete);
+        Box("Floor_E", b, new Vector3(0f, -4.8f, -4f), new Vector3(2.3f, -4.5f, -2f), concrete);
+
+        WallAlongZ("West", b, -5.3f, 1.3f, -6.3f, -6f, -4.8f, -0.25f, concrete);
+        WallAlongX("South", b, -6f, 2f, -5.3f, -5f, -4.8f, -0.25f, concrete);
+        WallAlongX("North", b, -6f, 2f, 1f, 1.3f, -4.8f, -0.25f, concrete);
+        // The east wall reaches down past the sunken bedroom; a breach near the floor opens into it.
+        WallAlongZ("East", b, -5.3f, 1.3f, 2f, 2.3f, -6.3f, -0.25f, concrete, new Opening(-2.5f, -0.7f, -4.5f, -3.1f));
+
+        // Stairs down from the ground-floor door to the landing just above the water.
+        Transform stairs = Group("Stairs", b);
+        float run = (StairTopZ - StairBottomZ) / StairSteps;
+        for (int i = 0; i < StairSteps; i++)
+        {
+            float top = LandingY * (i + 1) / StairSteps;
+            float zHigh = StairTopZ - i * run;
+            Box("Step" + i, stairs, new Vector3(-6f, top - 0.22f, zHigh - run), new Vector3(-4.8f, top, zHigh), darkPlanks);
+            // Invisible rail stop: nobody jumps off the stairs into the black water.
+            Box("RailStop" + i, stairs, new Vector3(-4.84f, top, zHigh - run), new Vector3(-4.76f, top + 1.1f, zHigh), darkPlanks)
+                .GetComponent<MeshRenderer>().enabled = false;
+        }
+
+        float slope = Mathf.Atan2(-LandingY, StairTopZ - StairBottomZ) * Mathf.Rad2Deg;
+        float length = Mathf.Sqrt(LandingY * LandingY + (StairTopZ - StairBottomZ) * (StairTopZ - StairBottomZ));
+        Primitive(PrimitiveType.Cube, "Handrail", stairs, new Vector3(-4.8f, LandingY * 0.5f + 0.95f, (StairTopZ + StairBottomZ) * 0.5f),
+            Quaternion.Euler(-slope, 0f, 0f), new Vector3(0.06f, 0.07f, length), darkPlanks);
+        for (int i = 0; i <= StairSteps; i += 3)
+        {
+            float top = LandingY * Mathf.Min(i + 1, StairSteps) / StairSteps;
+            float z = StairTopZ - (i + 0.5f) * run;
+            Box("Baluster" + i, stairs, new Vector3(-4.83f, top, z - 0.03f), new Vector3(-4.77f, top + 0.95f, z + 0.03f), darkPlanks, false);
+        }
+
+        // The landing: the dry end of the house, with the dive bench.
+        Box("Landing", b, new Vector3(-6f, LandingY - 0.2f, -5f), new Vector3(-3f, LandingY, StairBottomZ), darkPlanks);
+        foreach (Vector2 post in new[] { new Vector2(-3.1f, -4.9f), new Vector2(-3.1f, -2.35f), new Vector2(-5.9f, -4.9f) })
+        {
+            Box("Post", b, new Vector3(post.x - 0.08f, -4.5f, post.y - 0.08f), new Vector3(post.x + 0.08f, LandingY - 0.2f, post.y + 0.08f), darkPlanks);
+        }
+
+        // Rubble where the east wall gave way into the sunken bedroom.
+        Transform rubble = Group("BreachRubble", b);
+        Primitive(PrimitiveType.Cube, "Chunk0", rubble, new Vector3(2.9f, -5.7f, -1.3f), Quaternion.Euler(20f, 30f, 35f), new Vector3(1.1f, 0.5f, 0.8f), concrete, true);
+        Primitive(PrimitiveType.Cube, "Chunk1", rubble, new Vector3(2.6f, -5.2f, -2.1f), Quaternion.Euler(-15f, 10f, 25f), new Vector3(0.8f, 0.4f, 0.6f), concrete, true);
+        Primitive(PrimitiveType.Cube, "Chunk2", rubble, new Vector3(1.3f, -4.35f, 0.35f), Quaternion.Euler(5f, 40f, 12f), new Vector3(0.6f, 0.3f, 0.7f), concrete, true);
+    }
+
+    // Sunken bedroom interior: x 2.3..8.3, z -4..1, floor -6, ceiling -3.2: under water to the ceiling.
+    private static void BuildBedroom()
+    {
+        Transform r = Group("SunkenBedroom");
+        Box("Floor", r, new Vector3(2.3f, -6.3f, -4.25f), new Vector3(8.55f, -6f, 1.25f), floorboards);
+        Box("Ceiling", r, new Vector3(2.3f, -3.2f, -4.25f), new Vector3(8.55f, -2.95f, 1.25f), ceiling);
+        Opening window = new Opening(4.5f, 6.5f, -4.8f, -3.6f);
+        WallAlongZ("East", r, -4.25f, 1.25f, 8.3f, 8.55f, -6f, -3.2f, wallpaper);
+        WallAlongX("North", r, 2.3f, 8.3f, 1f, 1.25f, -6f, -3.2f, wallpaper, window);
+        WallAlongX("South", r, 2.3f, 8.3f, -4.25f, -4f, -6f, -3.2f, wallpaper);
+        WallAlongZ("WestLining", r, -4f, 1f, 2.3f, 2.34f, -6f, -3.2f, wallpaper, new Opening(-2.5f, -0.7f, -4.5f, -3.2f));
+        WindowFrame(r, "Window", true, 4.5f, 6.5f, 1.12f, -4.8f, -3.6f, 2);
+        // Behind the window: the drowned garden, just a dark bank of silt.
+        Box("Silt", r, new Vector3(3.5f, -6.3f, 2.2f), new Vector3(7.5f, -2.95f, 2.5f), concrete);
+    }
+
+    // Lab, all under water. Shaft x -2..0, z -4..-2 from the basement floor down to the corridor
+    // (x -2..0, z -18..-2, floor -10, ceiling -7.5). Cross passage at z -6.5..-5 (dead ends).
+    // Air-pocket room x 0.25..5.25, z -12..-7, ceiling -6.5. Tank room x -4..2, z -24..-18.
+    private static void BuildLab()
+    {
+        Transform lab = Group("Lab");
+
+        Transform shaft = Group("Shaft", lab);
+        WallAlongZ("West", shaft, -4f, -2f, -2.25f, -2f, -7.5f, -4.8f, concrete);
+        WallAlongZ("East", shaft, -4f, -2f, 0f, 0.25f, -7.5f, -4.8f, concrete);
+        WallAlongX("South", shaft, -2.25f, 0.25f, -4.25f, -4f, -7.5f, -4.8f, concrete);
+        WallAlongX("North", shaft, -2.25f, 0.25f, -2f, -1.75f, -10f, -4.8f, concrete);
+        for (float y = -7.2f; y < -4.8f; y += 0.35f)
+        {
+            Primitive(PrimitiveType.Cylinder, "Rung", shaft, new Vector3(-1f, y, -2.08f), Quaternion.Euler(0f, 0f, 90f),
+                new Vector3(0.04f, 0.4f, 0.04f), metal);
+        }
+
+        Transform corridor = Group("Corridor", lab);
+        Opening junction = new Opening(-6.5f, -5f, -10f, -7.7f);
+        Box("Floor", corridor, new Vector3(-2.25f, -10.3f, -18f), new Vector3(0.25f, -10f, -1.75f), labFloor);
+        Box("Ceiling", corridor, new Vector3(-2.25f, -7.5f, -18f), new Vector3(0.25f, -7.25f, -4.25f), labTile);
+        // Solid above the corridor ceiling, up to the air pocket's roof: the space left there was open, and a diver
+        // switching to the swimming shape at the pocket door got pushed up through the slab into it, then sat on the
+        // slab unable to sink (Gustavo, 2026-10-03: "no batente, tento afundar e fica piscando").
+        Box("CeilingFill", corridor, new Vector3(-2.25f, -7.25f, -18f), new Vector3(0.25f, -6.25f, -4.25f), concrete);
+        WallAlongZ("West", corridor, -18f, -1.75f, -2.25f, -2f, -10f, -7.5f, labTile, junction);
+        WallAlongZ("East", corridor, -18f, -1.75f, 0f, 0.25f, -10f, -7.5f, labTile, junction, new Opening(-10f, -9f, -10f, -8f));
+        Box("SealedDoor", corridor, new Vector3(-2.02f, -10f, -13f), new Vector3(-1.95f, -8f, -12.1f), rustyMetal);
+        Box("SealedDoorFrame", corridor, new Vector3(-2.02f, -8f, -13.1f), new Vector3(-1.92f, -7.88f, -12f), rustyMetal);
+        Box("PocketDoorFrame", corridor, new Vector3(-0.06f, -8f, -10.1f), new Vector3(0.3f, -7.85f, -8.9f), rustyMetal);
+        Transform pocketDoor = Group("PocketDoor", corridor);
+        pocketDoor.position = new Vector3(0.25f, -10f, -9f);
+        Box("Leaf", pocketDoor, new Vector3(0.25f, -10f, -9.95f), new Vector3(0.31f, -8.05f, -9.02f), rustyMetal);
+        pocketDoor.rotation = Quaternion.Euler(0f, -80f, 0f);
+
+        // Pipes along the ceiling, the lab's arteries.
+        foreach (Vector2 pipe in new[] { new Vector2(-1.75f, -7.72f), new Vector2(-1.45f, -7.8f), new Vector2(-0.3f, -9.75f) })
+        {
+            float diameter = pipe.y < -9f ? 0.18f : 0.13f;
+            Primitive(PrimitiveType.Cylinder, "Pipe", corridor, new Vector3(pipe.x, pipe.y, -10.9f), Quaternion.Euler(90f, 0f, 0f),
+                new Vector3(diameter, 6.9f, diameter), metal);
+        }
+
+        // Cross passage: both arms end in collapse a few metres in.
+        Transform cross = Group("CrossPassage", lab);
+        foreach (Vector2 arm in new[] { new Vector2(-6f, -2.25f), new Vector2(0.25f, 4f) })
+        {
+            Box("Floor", cross, new Vector3(arm.x, -10.3f, -6.5f), new Vector3(arm.y, -10f, -5f), concrete);
+            Box("Ceiling", cross, new Vector3(arm.x, -7.7f, -6.75f), new Vector3(arm.y, -7.45f, -4.75f), concrete);
+            WallAlongX("North", cross, arm.x, arm.y, -5f, -4.75f, -10f, -7.7f, concrete);
+            WallAlongX("South", cross, arm.x, arm.y, -6.75f, -6.5f, -10f, -7.7f, concrete);
+            float end = arm.x < 0f ? arm.x : arm.y;
+            float dir = arm.x < 0f ? 1f : -1f;
+            Box("End", cross, new Vector3(end - 0.3f * dir, -10f, -6.5f), new Vector3(end, -7.7f, -5f), concrete);
+            for (int i = 0; i < 4; i++)
+            {
+                Primitive(PrimitiveType.Cube, "Collapse" + i, cross, new Vector3(end + dir * (0.5f + i * 0.25f), -9.6f + i * 0.35f, -5.75f + (i % 2 == 0 ? 0.3f : -0.35f)),
+                    Quaternion.Euler(15f * i, 35f * i, 20f), new Vector3(0.9f, 0.6f, 0.7f), concrete, true);
+            }
+        }
+
+        // The air pocket: a taller room whose top metre holds trapped air.
+        Transform pocket = Group("AirPocketRoom", lab);
+        Box("Floor", pocket, new Vector3(0.25f, -10.3f, -12.25f), new Vector3(5.5f, -10f, -6.75f), labFloor);
+        Box("Ceiling", pocket, new Vector3(0f, -6.5f, -12.25f), new Vector3(5.5f, -6.25f, -6.75f), labTile);
+        WallAlongX("North", pocket, 0.25f, 5.5f, -7f, -6.75f, -10f, -6.5f, labTile);
+        WallAlongX("South", pocket, 0.25f, 5.5f, -12.25f, -12f, -10f, -6.5f, labTile);
+        WallAlongZ("East", pocket, -12f, -7f, 5.25f, 5.5f, -10f, -6.5f, labTile);
+        WallAlongZ("WestUpper", pocket, -12f, -7f, 0f, 0.25f, -7.5f, -6.5f, labTile);
+
+        Transform tanks = Group("TankRoom", lab);
+        Box("Floor", tanks, new Vector3(-4.25f, -10.3f, -24.25f), new Vector3(2.25f, -10f, -17.75f), labFloor);
+        Box("Ceiling", tanks, new Vector3(-4.25f, -7f, -24.25f), new Vector3(2.25f, -6.75f, -17.75f), labTile);
+        WallAlongX("North", tanks, -4.25f, 2.25f, -18f, -17.75f, -10f, -7f, labTile, new Opening(-2f, 0f, -10f, -7.5f));
+        WallAlongX("South", tanks, -4.25f, 2.25f, -24.25f, -24f, -10f, -7f, labTile);
+        WallAlongZ("West", tanks, -24f, -18f, -4.25f, -4f, -10f, -7f, labTile);
+        WallAlongZ("East", tanks, -24f, -18f, 2f, 2.25f, -10f, -7f, labTile);
+    }
+
+    // The island round the mansion: a mud crown (y -0.3, down to -2.9) ringed with coastal rock and dead mangrove,
+    // and a dark sea to the horizon. Seen from the windows, the courtyard and the doors. Open over the basement
+    // (it lies under the laundry and the service yard; FloodedHouseManor), where a paved yard covers it instead.
+    private static void BuildExterior()
+    {
+        Transform outside = Group("Exterior");
+        const float top = -0.3f, bottom = -2.9f;
+        // Island, in manor coordinates; open over the basement (its walls included: a scene rectangle, the basement does
+        // not move with the plan scale) and over the courtyard's sunken garden.
+        // 24/11 (Dayse: "a casa está muito perto do mar", and the open part bigger): the island grows IslandGrow times
+        // round its centre, which is the house's; the shore props move out with it (Shore()).
+        Rect island = Rect.MinMaxRect(2f - 32f * IslandGrow, 15f - 29f * IslandGrow, 2f + 32f * IslandGrow, 15f + 29f * IslandGrow);
+        Vector3 islandA = M(island.xMin, 0f, island.yMin), islandB = M(island.xMax, 0f, island.yMax);
+        Rect basementHole = Rect.MinMaxRect(9.95f + ManorOffset.x, 13.55f + ManorOffset.z, 18.65f + ManorOffset.x, 20.27f + ManorOffset.z);
+        GroundAround(outside, Rect.MinMaxRect(islandA.x, islandA.z, islandB.x, islandB.z), bottom, top, basementHole, MRect(LunaManor.Garden));
+        // The vestibule's north door opens onto the island (the plan's road to the sea): an invisible rail at the
+        // top of the bank keeps the player from walking off the edge into the sea (it is not water one can swim in).
+        foreach ((Vector3 a, Vector3 b) in new[]
+                 {
+                     (M(island.xMin, top, island.yMin), M(island.xMax, 4f, island.yMin + 0.3f)), (M(island.xMin, top, island.yMax - 0.3f), M(island.xMax, 4f, island.yMax)),
+                     (M(island.xMin, top, island.yMin), M(island.xMin + 0.3f, 4f, island.yMax)), (M(island.xMax - 0.3f, top, island.yMin), M(island.xMax, 4f, island.yMax)),
+                 })
+        {
+            Box("EdgeRail", outside, a, b, mud).GetComponent<MeshRenderer>().enabled = false;
+        }
+
+        // The paved service yard between the laundry and the bunker, over the basement's ceiling.
+        Box("ServiceYard", outside, M(15.15f, -0.25f, 15.55f), M(17f, -0.05f, 20.27f), concrete);
+
+        // Everything outside is Backdrop(): lightest LOD, no shadow casting (see the note there).
+        Backdrop(Prop("coast_rocks_01", outside, Shore(4f, 46f, -2.3f), 180f, false));
+        Backdrop(Prop("coast_rocks_01", outside, Shore(-18f, 45.5f, -2.3f), 200f, false));
+        Backdrop(Prop("coast_rocks_02", outside, Shore(-32f, 10f, -2.2f), 70f, false));
+        Backdrop(Prop("coast_rocks_02", outside, Shore(36f, 12f, -2.2f), 250f, false));
+        Backdrop(Prop("coast_rocks_02", outside, Shore(-24f, -16f, -2.2f), 20f, false));
+        Backdrop(Prop("coast_rocks_02", outside, Shore(26f, -16f, -2.2f), 150f, false));
+        Backdrop(Prop("coast_land_rocks_03", outside, Shore(-25f, 30f, -0.5f), 20f, false));
+        Backdrop(Prop("coast_land_rocks_03", outside, Shore(27f, 38f, -0.5f), 160f, false));
+        Backdrop(Prop("coast_land_rocks_03", outside, Shore(29f, 2f, -0.5f), 95f, false));
+
+        // Dead mangrove: bleached trunks standing in the mud and out in the shallows.
+        Vector3[] trunks =
+        {
+            Shore(-24f, -6f, top), Shore(-26f, 22f, top), Shore(24f, -8f, top), Shore(29f, 20f, top), Shore(-8f, 40f, top), Shore(14f, 41f, top),
+            Shore(-22f, 8f, top), Shore(26f, 28f, top), Shore(-12f, 50f, -2.6f), Shore(20f, 49f, -2.6f), Shore(-36f, 0f, -2.6f), Shore(39f, -4f, -2.6f),
+        };
+        for (int i = 0; i < trunks.Length; i++)
+        {
+            GameObject trunk = Backdrop(Prop("dead_quiver_trunk", outside, trunks[i], Quaternion.Euler(Random.Range(-14f, 14f), i * 47f, Random.Range(-14f, 14f)), false, Random.Range(1.1f, 1.7f)));
+            trunk.name = "DeadMangrove" + i;
+        }
+
+        IslandScrub(outside, island);
+
+        // Storm sea: a subdivided grid whose vertices the StormSea shader moves on the GPU (Gerstner
+        // waves). The island is left out so the sea never cuts through the house or the flooded basement.
+        GameObject seaObject = new GameObject("Sea");
+        seaObject.transform.SetParent(outside, false);
+        seaObject.transform.position = new Vector3(0f, WaterLevel, 0f);
+        seaObject.AddComponent<MeshFilter>().sharedMesh = SeaMesh(400f, 2f, Rect.MinMaxRect(islandA.x - 0.5f, islandA.z - 0.5f, islandB.x + 0.5f, islandB.z + 0.5f));
+        MeshRenderer seaRenderer = seaObject.AddComponent<MeshRenderer>();
+        seaRenderer.sharedMaterial = sea;
+        seaRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        seaObject.AddComponent<SeaWaves>();
+
+        BuildRain(outside);
+    }
+
+    // The ground the grown island added round the house (24/11, Dayse: the open part bigger, the sea further): the
+    // big island's own plants (the arrival's trees, bushes and low plants, ArrivalCutsceneBuilder) on a jittered
+    // grid with clearings from a broad noise, thinner towards the shore, plus more dead mangrove at the waterline.
+    // Kept off the house and 4 m round it, the dirt road to the sea and the open front approach. No shadows: it is
+    // all seen at night in the rain, and the moon cascades drew the old rocks at full cost (Backdrop()).
+    private static void IslandScrub(Transform outside, Rect island)
+    {
+        Transform group = Group("IslandScrub", outside);
+        System.Random random = new System.Random(2411);
+        Rect house = Rect.MinMaxRect(-24f, -5f, 28f, 38f);
+        Rect road = Rect.MinMaxRect(-4f, 26f, 4.2f, island.yMax);
+        Rect front = Rect.MinMaxRect(-9f, island.yMin, 9f, 0f);
+        (string near, string far, float min, float max)[] woody = { ("IslandTree", "IslandTreeFar", 0.8f, 1.25f), ("Searsia", "SearsiaFar", 0.8f, 1.3f) };
+        string[] low = { "Fern", "Sorrel", "Shrub2", "Shrub3", "Shrub4", "Calathea" };
+        int trees = 0, plants = 0;
+        const float step = 3.6f;
+        for (float z = island.yMin + 3f; z < island.yMax - 3f; z += step)
+        {
+            for (float x = island.xMin + 3f; x < island.xMax - 3f; x += step)
+            {
+                float px = x + ((float)random.NextDouble() - 0.5f) * step * 0.9f;
+                float pz = z + ((float)random.NextDouble() - 0.5f) * step * 0.9f;
+                Vector2 p = new Vector2(px, pz);
+                if (house.Contains(p) || road.Contains(p) || front.Contains(p))
+                {
+                    continue;
+                }
+
+                // 0 at the shore, 1 well inland: fewer and lower plants on the bank.
+                float shore = Mathf.Min(Mathf.Min(px - island.xMin, island.xMax - px), Mathf.Min(pz - island.yMin, island.yMax - pz));
+                float inland = Mathf.InverseLerp(3f, 14f, shore);
+                float woods = Mathf.PerlinNoise(px * 0.06f + 13f, pz * 0.06f + 41f);
+                double roll = random.NextDouble();
+                Vector3 at = M(px, -0.3f, pz);
+                float yaw = (float)random.NextDouble() * 360f;
+                if (woods > 0.45f && roll < 0.5f * inland)
+                {
+                    var w = woody[roll < 0.25f * inland ? 0 : 1];
+                    if (ArrivalCutsceneBuilder.PlaceWoody(group, w.near, w.far, at, yaw, Mathf.Lerp(w.min, w.max, (float)random.NextDouble())))
+                    {
+                        trees++;
+                    }
+                }
+                else if (woods > 0.25f && roll < 0.85f)
+                {
+                    // A small clump of low plants round the cell.
+                    for (int k = 0; k < 3; k++)
+                    {
+                        Vector3 off = M(px + ((float)random.NextDouble() - 0.5f) * 3f, -0.3f, pz + ((float)random.NextDouble() - 0.5f) * 3f);
+                        if (ArrivalCutsceneBuilder.PlacePlant(low[random.Next(low.Length)], group, off, (float)random.NextDouble() * 360f, Mathf.Lerp(0.9f, 1.6f, (float)random.NextDouble()) * Mathf.Lerp(0.7f, 1f, inland)))
+                        {
+                            plants++;
+                        }
+                    }
+                }
+                else if (shore < 9f && roll > 0.9f)
+                {
+                    GameObject trunk = Backdrop(Prop("dead_quiver_trunk", group, at, Quaternion.Euler(Random.Range(-14f, 14f), yaw, Random.Range(-14f, 14f)), false, Random.Range(1.1f, 1.7f)));
+                    trunk.name = "DeadMangroveShore";
+                }
+            }
+        }
+
+        int tufts = IslandGrass(group, island, house, road, front);
+        Debug.Log("[FloodedHouse] island grass: " + tufts + " tufts");
+        Debug.Log("[FloodedHouse] island scrub: " + trees + " trees and bushes, " + plants + " low plants");
+    }
+
+    // Wild grass over the island's mud (the garden's tuft and olive material, GardenTuft from BuildGarden), in patches
+    // from a broad noise, thin on the bank; one combined mesh per 16 m block so the blocks behind the camera cull.
+    private static int IslandGrass(Transform group, Rect island, Rect house, Rect road, Rect front)
+    {
+        Mesh tuft = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>(ProjectPaths.Root + "/Cutscenes/GrassTuft.asset");
+        // The garden's olive tuft material (BuildGarden made it earlier in the rebuild).
+        Material grass = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(ProjectPaths.FloodedHouseMaterials + "/GardenTuft.mat");
+        if (tuft == null || grass == null)
+        {
+            Debug.LogWarning("[FloodedHouse] island grass: tuft mesh or GardenTuft material missing");
+            return 0;
+        }
+
+        System.Random random = new System.Random(2412);
+        const float block = 13f;
+        int total = 0;
+        for (float bz = island.yMin; bz < island.yMax; bz += block)
+        {
+            for (float bx = island.xMin; bx < island.xMax; bx += block)
+            {
+                List<CombineInstance> parts = new List<CombineInstance>();
+                for (int i = 0; i < 520; i++)
+                {
+                    float px = bx + (float)random.NextDouble() * block, pz = bz + (float)random.NextDouble() * block;
+                    Vector2 p = new Vector2(px, pz);
+                    if (!island.Contains(p) || house.Contains(p) || road.Contains(p))
+                    {
+                        continue;
+                    }
+
+                    float shore = Mathf.Min(Mathf.Min(px - island.xMin, island.xMax - px), Mathf.Min(pz - island.yMin, island.yMax - pz));
+                    float patch = Mathf.PerlinNoise(px * 0.09f + 5f, pz * 0.09f + 77f);
+                    float keep = Mathf.InverseLerp(0.2f, 0.6f, patch) * Mathf.InverseLerp(1f, 7f, shore) * (front.Contains(p) ? 0.35f : 1f);
+                    if (random.NextDouble() > keep)
+                    {
+                        continue;
+                    }
+
+                    float w = Mathf.Lerp(0.5f, 1f, (float)random.NextDouble()), h = Mathf.Lerp(0.35f, 0.95f, (float)random.NextDouble()) * Mathf.Lerp(0.7f, 1f, keep);
+                    parts.Add(new CombineInstance { mesh = tuft, transform = Matrix4x4.TRS(M(px, -0.3f, pz), Quaternion.Euler(0f, (float)random.NextDouble() * 360f, 0f), new Vector3(w, h, w)) });
+                }
+
+                if (parts.Count == 0)
+                {
+                    continue;
+                }
+
+                Mesh combined = new Mesh { name = "IslandGrass", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+                combined.CombineMeshes(parts.ToArray(), true, true);
+                combined.RecalculateBounds();
+                GameObject go = new GameObject("IslandGrass");
+                go.transform.SetParent(group, false);
+                go.AddComponent<MeshFilter>().sharedMesh = combined;
+                MeshRenderer r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = grass;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                total += parts.Count;
+            }
+        }
+
+        return total;
+    }
+
+    // How much bigger the island is than the 29/10 one, round its centre (manor x 2, z 15: the middle of the house).
+    internal const float IslandGrow = 1.6f;
+
+    // A point of the 29/10 shore (manor coordinates), pushed out to the grown island's shore, in scene coordinates.
+    internal static Vector3 Shore(float x, float z, float y = 0f)
+    {
+        return M(2f + (x - 2f) * IslandGrow, y, 15f + (z - 15f) * IslandGrow);
+    }
+
+    // The island's mud crown as boxes covering `outer` (scene x/z) except the holes: the plane cut on every hole edge,
+    // the cells outside all holes merged along each row.
+    private static void GroundAround(Transform parent, Rect outer, float bottom, float top, params Rect[] holes)
+    {
+        List<float> xs = new List<float> { outer.xMin, outer.xMax }, zs = new List<float> { outer.yMin, outer.yMax };
+        foreach (Rect h in holes)
+        {
+            xs.Add(Mathf.Clamp(h.xMin, outer.xMin, outer.xMax));
+            xs.Add(Mathf.Clamp(h.xMax, outer.xMin, outer.xMax));
+            zs.Add(Mathf.Clamp(h.yMin, outer.yMin, outer.yMax));
+            zs.Add(Mathf.Clamp(h.yMax, outer.yMin, outer.yMax));
+        }
+
+        xs.Sort();
+        zs.Sort();
+        int n = 0;
+        for (int j = 0; j + 1 < zs.Count; j++)
+        {
+            if (zs[j + 1] - zs[j] < 0.001f)
+            {
+                continue;
+            }
+
+            float start = float.NaN;
+            for (int i = 0; i < xs.Count; i++)
+            {
+                // A cell [xs[i], xs[i + 1]] is solid when it lies outside every hole; past the last edge, flush the run.
+                bool solid = false;
+                if (i + 1 < xs.Count)
+                {
+                    if (xs[i + 1] - xs[i] < 0.001f)
+                    {
+                        continue;
+                    }
+
+                    Vector2 c = new Vector2((xs[i] + xs[i + 1]) * 0.5f, (zs[j] + zs[j + 1]) * 0.5f);
+                    solid = true;
+                    foreach (Rect h in holes)
+                    {
+                        solid &= !h.Contains(c);
+                    }
+                }
+
+                if (solid && float.IsNaN(start))
+                {
+                    start = xs[i];
+                }
+                else if (!solid && !float.IsNaN(start))
+                {
+                    Box("Ground_" + n++, parent, new Vector3(start, bottom, zs[j]), new Vector3(xs[i], top, zs[j + 1]), mud);
+                    start = float.NaN;
+                }
+            }
+        }
+    }
+
+    // Flat grid (size x size metres, one quad per cell) with a rectangular hole; the waves come from the
+    // shader. Bounds are padded so the displaced crests are never frustum-culled.
+    private static Mesh SeaMesh(float size, float cell, Rect hole)
+    {
+        int cells = Mathf.CeilToInt(size / cell);
+        float half = size * 0.5f;
+        Vector3[] vertices = new Vector3[(cells + 1) * (cells + 1)];
+        for (int z = 0; z <= cells; z++)
+        {
+            for (int x = 0; x <= cells; x++)
+            {
+                vertices[z * (cells + 1) + x] = new Vector3(-half + x * cell, 0f, -half + z * cell);
+            }
+        }
+
+        System.Collections.Generic.List<int> triangles = new System.Collections.Generic.List<int>();
+        for (int z = 0; z < cells; z++)
+        {
+            for (int x = 0; x < cells; x++)
+            {
+                Vector2 center = new Vector2(-half + (x + 0.5f) * cell, -half + (z + 0.5f) * cell);
+                if (hole.Contains(center))
+                {
+                    continue;
+                }
+
+                int i = z * (cells + 1) + x;
+                triangles.AddRange(new[] { i, i + cells + 1, i + 1, i + 1, i + cells + 1, i + cells + 2 });
+            }
+        }
+
+        Mesh mesh = new Mesh { name = "StormSeaGrid", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        mesh.vertices = vertices;
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateNormals();
+        mesh.bounds = new Bounds(Vector3.zero, new Vector3(size + 10f, 6f, size + 10f));
+        return mesh;
+    }
+
+    private static void BuildWater()
+    {
+        Transform w = Group("Water");
+
+        // The ground floor stays dry: the basement right below is only half flooded (decided 2026-09-29).
+        WaterSurface("Basement", w, -6f, 2f, -5f, 1f, WaterLevel, water, 0.5f);
+        // Visibility (metres until nothing shows): the house water is dirty, the lab water is turbid.
+        Volume("BasementWater", w, new Vector3(-6f, -4.8f, -5f), new Vector3(2f, WaterLevel, 1f), WaterLevel, true, 10f);
+        Volume("BedroomWater", w, new Vector3(1.9f, -6f, -4f), new Vector3(8.3f, -3.2f, 1f), WaterLevel, true, 9f);
+        Volume("ShaftAndCorridorWater", w, new Vector3(-2f, -10f, -18.1f), new Vector3(0f, -4.5f, -1.75f), WaterLevel, true, 6f);
+        Volume("CrossPassageWater", w, new Vector3(-6f, -10f, -6.5f), new Vector3(4f, -7.7f, -5f), WaterLevel, true, 6f);
+        Volume("TankRoomWater", w, new Vector3(-4f, -10f, -24f), new Vector3(2f, -7f, -17.9f), WaterLevel, true, 6f);
+
+        // The air pocket: the room's own, lower surface.
+        WaterSurface("AirPocket", w, 0.25f, 5.25f, -12f, -7f, AirPocketLevel, water, 0.3f);
+        Volume("AirPocketWater", w, new Vector3(0f, -10f, -12f), new Vector3(5.25f, -6.5f, -7f), AirPocketLevel, true, 7f);
+
+        // End of the demo: the sea under the ground floor's boards (the front rooms and the kitchen).
+        Transform flood = Group("GroundFloorFlood", w);
+        Vector3 f0 = M(-10.4f, 0f, 1.95f), f1 = M(10.4f, 0f, 8.9f);
+        WaterSurface("Front", flood, f0.x, f1.x, f0.z, f1.z, FloodStartY, water, 0.6f);
+        Vector3 k0 = M(-18.2f, 0f, 3.75f), k1 = M(-11.6f, 0f, 16f);
+        WaterSurface("Kitchen", flood, k0.x, k1.x, k0.z, k1.z, FloodStartY, water, 0.6f);
+        floodVolume = Volume("GroundFloorFloodWater", flood, new Vector3(f0.x, -0.05f, f0.z), new Vector3(f1.x, 0.8f, f1.z), FloodStartY, false, 10f);
+        floodSurfaces = flood;
+    }
+}
