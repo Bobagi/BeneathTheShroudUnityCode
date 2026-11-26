@@ -300,6 +300,12 @@ public sealed class GameTuning : ScriptableObject
     [Tooltip("Juncos aquáticos da Dayse (poça do jardim): brilho do miolo amarelo dos botões.")]
     [Range(0f, 4f)] public float reedBudGlow = 1f;
 
+    [Tooltip("O homem na parede (Dayse): distância em que o olho percebe o jogador e passa a encará-lo (metros).")]
+    [Range(1f, 20f)] public float wallManNoticeRange = 7f;
+
+    [Tooltip("O homem na parede: velocidade do olho quando salta para o jogador (graus por segundo; olho de verdade passa de 400).")]
+    [Range(30f, 900f)] public float wallManEyeSpeed = 520f;
+
     [Tooltip("Afogado: distância em que ele percebe o jogador com linha de visão livre (metros).")]
     [Range(3f, 30f)] public float drownedNoticeRange = 11f;
 

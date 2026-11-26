@@ -107,6 +107,8 @@ public static partial class FloodedHouseBuilder
         AnemoneWorms(f, M(-12.4f, 0f, 20.6f), 12, player);
         // Away from the vanity against the south wall (it grew through it, audit 22/10).
         AnemoneWorms(f, M(-12.6f, UF, 17.4f), 24, player);
+        // Dayse's Drive of 24 and 25/11: the man in the wall, the boat aground, the two trees.
+        DayseLate(f, player);
         TuneGrowths(f);
         Random.state = saved;
     }

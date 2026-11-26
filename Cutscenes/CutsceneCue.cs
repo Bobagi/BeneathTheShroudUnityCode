@@ -22,7 +22,9 @@ public sealed class CutsceneCue : PlayableAsset, ITimelineClipAsset
 {
     public enum Kind { Caption, Fade, Lightning, Animate, Move, Reach, FirstPerson }
 
-    public enum CaptionStyle { Presents, Title, Subtitle }
+    // Letter: a line of a letter read over the pictures (Erick's to Natália in the arrival), slower than a subtitle.
+    // New styles go at the end: the clips store the number.
+    public enum CaptionStyle { Presents, Title, Subtitle, Letter }
 
     public Kind kind = Kind.Caption;
 
@@ -105,8 +107,8 @@ public sealed class CutsceneCueBehaviour : PlayableBehaviour
                 if (director != null)
                 {
                     // Cinema cards fade slowly (1.6 s in, the title 2.2 s); subtitles quickly. Notes: Docs/Cinema/titulos.md.
-                    float edgeIn = cue.style == CutsceneCue.CaptionStyle.Subtitle ? 0.35f : cue.style == CutsceneCue.CaptionStyle.Title ? 2.2f : 1.6f;
-                    float edgeOut = cue.style == CutsceneCue.CaptionStyle.Subtitle ? 0.35f : 1.4f;
+                    float edgeIn = cue.style == CutsceneCue.CaptionStyle.Subtitle ? 0.35f : cue.style == CutsceneCue.CaptionStyle.Letter ? 0.6f : cue.style == CutsceneCue.CaptionStyle.Title ? 2.2f : 1.6f;
+                    float edgeOut = cue.style == CutsceneCue.CaptionStyle.Subtitle ? 0.35f : cue.style == CutsceneCue.CaptionStyle.Letter ? 0.5f : 1.4f;
                     float seconds = (float)playable.GetTime();
                     float left = (float)duration - seconds;
                     float alpha = Mathf.Clamp01(Mathf.Min(seconds / edgeIn, left / edgeOut));

@@ -38,6 +38,8 @@ public sealed class CutsceneDirector : MonoBehaviour
     private TextMeshProUGUI title;
     private TextMeshProUGUI subtitle;
     private CanvasGroup subtitlePlate;
+    private TextMeshProUGUI letter;
+    private CanvasGroup letterPlate;
     private Image black;
     private CanvasGroup skipGroup;
     private Image skipFill;
@@ -103,6 +105,7 @@ public sealed class CutsceneDirector : MonoBehaviour
         SetCaption(CutsceneCue.CaptionStyle.Presents, "", 0f);
         SetCaption(CutsceneCue.CaptionStyle.Title, "", 0f);
         SetCaption(CutsceneCue.CaptionStyle.Subtitle, "", 0f);
+        SetCaption(CutsceneCue.CaptionStyle.Letter, "", 0f);
         SetBlack(1f);
         if (Finished != null)
         {
@@ -132,6 +135,10 @@ public sealed class CutsceneDirector : MonoBehaviour
                 title.characterSpacing = Mathf.Lerp(34f, 10f, settle);
                 title.rectTransform.localScale = Vector3.one * Mathf.Lerp(1f, 1.035f, progress);
                 break;
+            case CutsceneCue.CaptionStyle.Letter:
+                Show(letter, text, alpha);
+                letterPlate.alpha = alpha;
+                break;
             default:
                 Show(subtitle, text, alpha);
                 subtitlePlate.alpha = alpha;
@@ -155,9 +162,14 @@ public sealed class CutsceneDirector : MonoBehaviour
 
     private static void Show(TextMeshProUGUI label, string text, float alpha)
     {
-        if (alpha > 0f && label.text != text)
+        // The clip stores the key of the language table (or plain text, which passes through).
+        if (alpha > 0f)
         {
-            label.text = text;
+            string shown = Loc.Resolve(text);
+            if (label.text != shown)
+            {
+                label.text = shown;
+            }
         }
 
         label.alpha = alpha;
@@ -229,6 +241,21 @@ public sealed class CutsceneDirector : MonoBehaviour
         subtitle.margin = new Vector4(28f, 8f, 28f, 8f);
         DiveHud.Readable(subtitle);
 
+        // The letter: wider and taller than the subtitle (two lines), in italics, the paper's warm ink.
+        RectTransform page = HudFactory.Rect("LetterPlate", canvas.transform);
+        page.anchorMin = new Vector2(0.5f, 0f);
+        page.anchorMax = new Vector2(0.5f, 0f);
+        page.pivot = new Vector2(0.5f, 0f);
+        page.anchoredPosition = new Vector2(0f, 1080f * barHeight + 28f);
+        page.sizeDelta = new Vector2(1500f, 124f);
+        page.gameObject.AddComponent<Image>().color = DiveHud.Plate;
+        letterPlate = page.gameObject.AddComponent<CanvasGroup>();
+        letter = HudFactory.Label("Letter", page, 32f, TextAlignmentOptions.Center, new Color(0.93f, 0.88f, 0.76f));
+        HudFactory.Stretch(letter.rectTransform);
+        letter.margin = new Vector4(32f, 8f, 32f, 8f);
+        letter.fontStyle = FontStyles.Italic;
+        DiveHud.Readable(letter);
+
         black = HudFactory.Image("Black", canvas.transform, null, Color.black);
         HudFactory.Stretch(black.rectTransform);
         black.raycastTarget = false;
@@ -265,6 +292,7 @@ public sealed class CutsceneDirector : MonoBehaviour
         SetCaption(CutsceneCue.CaptionStyle.Presents, "", 0f);
         SetCaption(CutsceneCue.CaptionStyle.Title, "", 0f);
         SetCaption(CutsceneCue.CaptionStyle.Subtitle, "", 0f);
+        SetCaption(CutsceneCue.CaptionStyle.Letter, "", 0f);
     }
 
     private RectTransform Bar(string name, Transform parent, bool top)

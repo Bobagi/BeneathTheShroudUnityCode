@@ -21,8 +21,10 @@ using UnityEngine.Timeline;
 //   54 - end  as he walks the last metres the camera glides into his eyes (third person to first, 2.5 s blend);
 //            he steps onto the porch, stops at arm's length, his hand goes to the handle (IK) and grips it;
 //            lightning; the door creaks as the screen goes black
-// No subtitles, no words about the story (Gustavo 03/10): only the cards, sound and acting. Music: arrival_theme
-// (Audio/Music, CC0), cut so its swell peaks at the title. Card technique: Docs/Cinema/titulos.md.
+// No subtitles, no words about the story (Gustavo 03/10): only the cards, sound and acting. The one exception, since
+// 25/11: Erick's letter to Natália, read line by line while the boat comes in (Dayse's text; Gustavo asked for what
+// she said to go in). Music: arrival_theme (Audio/Music, CC0), cut so its swell peaks at the title. Card technique:
+// Docs/Cinema/titulos.md.
 public static partial class ArrivalCutsceneBuilder
 {
     private const float BoatArrives = 38f;
@@ -162,6 +164,7 @@ public static partial class ArrivalCutsceneBuilder
         CutsceneCueTrack cards = Cues("Letreiros");
         Fade(cards, 0f, 3f, 1f, 0f);
         Caption(cards, 3.5f, 10f, CutsceneCue.CaptionStyle.Presents, "Daysavo apresenta");
+        Letter(cards);
         // Out of the close lightning at 48.4 s.
         Caption(cards, 48.55f, 55.5f, CutsceneCue.CaptionStyle.Title, "BENEATH THE SHROUD");
         Fade(cards, 62f, 63.4f, 0f, 1f);
@@ -351,6 +354,51 @@ public static partial class ArrivalCutsceneBuilder
         CutsceneCue cue = Cue(track, start, end, CutsceneCue.Kind.Caption, text);
         cue.style = style;
         cue.text = text;
+    }
+
+    // Erick's letter to Natália (keys cut.letter.N of the language table), from the end of the studio card until the
+    // boat is alongside the pier; each line stays in proportion to its length (about 2.6 words a second).
+    public const float LetterStart = 10.8f;
+    public static readonly float[] LetterSeconds = { 4.4f, 2.6f, 2.6f, 4.6f, 5f, 2.9f, 2.8f, 3.3f };
+
+    private static void Letter(CutsceneCueTrack track)
+    {
+        float at = LetterStart;
+        for (int i = 0; i < LetterSeconds.Length; i++)
+        {
+            // A breath between the lines: two clips touching would fight over the one label.
+            Caption(track, at, at + LetterSeconds[i] - 0.12f, CutsceneCue.CaptionStyle.Letter, "cut.letter." + (i + 1));
+            at += LetterSeconds[i];
+        }
+    }
+
+    // Puts the letter into the timeline that already exists, without rebuilding the arrival scene (the captions hold
+    // no scene reference). Safe to run again: the old letter clips are replaced.
+    [MenuItem("Horror/Cutscenes/Carta do Erick na timeline da chegada")]
+    public static void LetterIntoTimeline()
+    {
+        TimelineAsset asset = AssetDatabase.LoadAssetAtPath<TimelineAsset>(Folder + "/Arrival.playable");
+        CutsceneCueTrack cards = asset == null ? null : asset.GetOutputTracks().OfType<CutsceneCueTrack>().FirstOrDefault(t => t.name == "Letreiros");
+        if (cards == null)
+        {
+            Debug.LogWarning("[Arrival] Arrival.playable has no 'Letreiros' track: build the arrival scene first.");
+            return;
+        }
+
+        foreach (TimelineClip clip in cards.GetClips().ToArray())
+        {
+            CutsceneCue cue = clip.asset as CutsceneCue;
+            if (cue != null && cue.kind == CutsceneCue.Kind.Caption && cue.style == CutsceneCue.CaptionStyle.Letter)
+            {
+                asset.DeleteClip(clip);
+            }
+        }
+
+        Letter(cards);
+        EditorUtility.SetDirty(cards);
+        EditorUtility.SetDirty(asset);
+        AssetDatabase.SaveAssets();
+        Debug.Log("[Arrival] Erick's letter: " + LetterSeconds.Length + " lines from " + LetterStart + " s.");
     }
 
     private static void Fade(CutsceneCueTrack track, float start, float end, float from, float to)
