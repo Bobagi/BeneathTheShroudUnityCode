@@ -660,8 +660,9 @@ public static partial class FloodedHouseBuilder
         Material stalks = DayseFungusMaterial("FungusBlueCluster", true);
         GameObject colonyModel = ModelProp("FungusBlueColony", parent, surface, Quaternion.identity, false, false);
         colonyModel.name = "ColonyModel";
-        // The plaque is 0.9 m and 24 cm thick as baked: no wider than 1.25 m, and a third of its thickness in the wall.
-        float scale = Mathf.Min(size, 1.25f) / 0.9f;
+        // The plaque is 0.9 m and 24 cm thick as baked: no wider than 2 m (1.25 until 26/11, when Dayse asked for bigger
+        // fungus), and a third of its thickness in the wall.
+        float scale = Mathf.Min(size, 2f) / 0.9f;
         colonyModel.transform.localScale *= scale;
         Vector3 upHint = Mathf.Abs(outward.y) > 0.9f ? Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up) * Vector3.forward : Quaternion.AngleAxis(Random.Range(-30f, 30f), outward) * Vector3.up;
         Seat(colonyModel, surface, outward, Vector3.back, Vector3.up, upHint, 0.08f * scale);

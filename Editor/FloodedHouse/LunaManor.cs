@@ -925,8 +925,8 @@ public static class LunaManor
         Slab("Soffit_W", r, new[] { V(-4.3f, -0.35f), V(-2.4f, -0.35f), V(-2.4f, 0f), V(-4f, 1.9f), V(-4.3f, 1.9f) }, 3.2f, SlabTop, p.roofFlat, p.ceiling, p.wall, false);
         Slab("Soffit_E", r, new[] { V(2.4f, -0.35f), V(4.3f, -0.35f), V(4.3f, 1.9f), V(4f, 1.9f), V(2.4f, 0f) }, 3.2f, SlabTop, p.roofFlat, p.ceiling, p.wall, false);
         // The bay rooms' tall pyramids, their apex over the room's middle.
-        Pyramid("DiningRoof", r, JantarOutline(), SlabTop, SlabTop + 3.4f, slate);
-        Pyramid("LivingRoof", r, EstarOutline(), SlabTop, SlabTop + 3.4f, slate);
+        Pyramid("DiningRoof", r, JantarOutline(), SlabTop, SlabTop + 3.4f, slate, 8.92f);
+        Pyramid("LivingRoof", r, EstarOutline(), SlabTop, SlabTop + 3.4f, slate, 8.92f);
         // Kitchen and library fronts: hips along x; behind, the parts under the upper floor's walls: lean-tos falling
         // outward from below the bedrooms' sills.
         HipRoof("KitchenRoof", r, R(-19.5f, 3.7f, -11.6f, 8.9f), false, SlabTop, SlabTop + 1.9f, 0f, 0f, slate, false);
@@ -1105,7 +1105,9 @@ public static class LunaManor
 
     // A pyramid roof over a convex outline: a face from every edge up to the apex over the outline's centre; the eaves
     // are the outline scaled out about the centre, so every face continues its own plane over the overhang.
-    private static void Pyramid(string name, Transform parent, Vector2[] outline, float eave, float apex, Material slate)
+    // maxZ: no overhang past that line (the courtyard side, 26/11: the dining and living rooms' eaves hung 40 cm into
+    // the corner stairs at head height, "o teto está entrando na escada").
+    private static void Pyramid(string name, Transform parent, Vector2[] outline, float eave, float apex, Material slate, float maxZ = float.MaxValue)
     {
         Vector2 c = Vector2.zero;
         foreach (Vector2 q in outline)
@@ -1133,6 +1135,8 @@ public static class LunaManor
                 continue;
             }
 
+            a.y = Mathf.Min(a.y, maxZ);
+            b.y = Mathf.Min(b.y, maxZ);
             Vector3 pa = new Vector3(a.x, y, a.y), pb = new Vector3(b.x, y, b.y);
             m.Face(slate, pa, pb, top);
             m.Edge(pa, pb);

@@ -1094,6 +1094,14 @@ public sealed class FloodedHouseDirector : MonoBehaviour
             }
         }
 
+        foreach (GrowthBarrier barrier in FindObjectsByType<GrowthBarrier>(FindObjectsInactive.Include))
+        {
+            if (barrier.IsOpen)
+            {
+                d.barriersOpen.Add(SaveGame.PathOf(barrier.transform));
+            }
+        }
+
         foreach (StoryPickup pickup in FindObjectsByType<StoryPickup>(FindObjectsInactive.Include))
         {
             if (pickup.Taken)
@@ -1176,6 +1184,14 @@ public sealed class FloodedHouseDirector : MonoBehaviour
             if (d.doorsOpen.Contains(SaveGame.PathOf(door.transform)))
             {
                 door.RestoreOpen();
+            }
+        }
+
+        foreach (GrowthBarrier barrier in FindObjectsByType<GrowthBarrier>(FindObjectsInactive.Include))
+        {
+            if (d.barriersOpen != null && d.barriersOpen.Contains(SaveGame.PathOf(barrier.transform)))
+            {
+                barrier.RestoreOpen();
             }
         }
 

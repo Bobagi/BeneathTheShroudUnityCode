@@ -520,7 +520,11 @@ public sealed class GameTuning : ScriptableObject
     [Range(0f, 3f)] public float ssgiIntensity = 1f;
 
     [Header("Luz própria no escuro")]
-    public float darkVisionIntensity = 1f;
+    [Tooltip("Força da luz fraca em volta do jogador quando não há luz por perto (a 'luz própria' do Amnesia). Medido em 26/11: com 1 e alcance de 4 m a tela inicial tinha 97% de preto puro e a luz não mudava um pixel; com 26 e 6,5 m o piso e o teto perto aparecem e as paredes continuam no escuro.")]
+    [Range(0f, 80f)] public float darkVisionIntensity = 26f;
+
+    [Tooltip("Alcance dessa luz no ar, em metros. O jogador olha para a frente: com menos de 5 m ela só ilumina o chão embaixo dos pés, fora da vista.")]
+    [Range(2f, 12f)] public float darkVisionRange = 6.5f;
     public float darkVisionUnderwater = 0.8f;
 
     [Header("Mar")]

@@ -283,7 +283,10 @@ public sealed class MansionHud : MonoBehaviour
         {
             for (int d = 0; d <= 9; d++)
             {
-                if (keyboard[(Key)((int)Key.Digit0 + d)].wasPressedThisFrame || keyboard[(Key)((int)Key.Numpad0 + d)].wasPressedThisFrame)
+                // The top row is Digit1..Digit9, Digit0 in the Key enum (0 comes last): Digit0 + d landed on Left Shift
+                // for 1 and on the modifiers after it, so the row above the letters typed nothing but 0 (found 26/11).
+                Key row = d == 0 ? Key.Digit0 : (Key)((int)Key.Digit1 + d - 1);
+                if (keyboard[row].wasPressedThisFrame || keyboard[(Key)((int)Key.Numpad0 + d)].wasPressedThisFrame)
                 {
                     Press(d.ToString());
                 }

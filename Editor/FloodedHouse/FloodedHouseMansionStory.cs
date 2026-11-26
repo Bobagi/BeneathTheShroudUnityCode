@@ -53,6 +53,8 @@ public static partial class FloodedHouseBuilder
         LockedDoors(s, doorCreaks[1], keyTurns[2]);
         PlanFungus(s);
         Garden(s, rig.controller.transform);
+        // The doorways off the demo's path grown shut, the free doors shut (26/11).
+        GrowthBarriers(s);
 
         // ---------------- 1. dining room
         Recorder first = MakeRecorder("Recorder1", s, M(-8.05f, 0.781f, 2.55f), -20f, "gravacao_1", "story.rec1.title", "rec1",

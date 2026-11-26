@@ -114,6 +114,24 @@ public static partial class FloodedHouseBuilder
             return;
         }
 
+        // Dayse, 26/11 (she walked the whole demo and never found it in the passage): "é pra ele ficar na varanda. Do
+        // tamanho de uma parede mesmo. A parte da parede é substituída pelo homem na parede". The varanda is the
+        // courtyard: the panel grows to the gallery's full height (3.4 m) and is sunk into the wall, so the face comes
+        // out of the wall itself.
+        const float wallScale = (LunaManor.GroundCeiling - 0.04f) / 2.6f;
+        // The west gallery's wall north of the kitchen door (the only door in it, at z 12.6): eight metres of plain
+        // wall, seen across the lawn between the pillars. FreePanelSpot refuses the courtyard's walls (their skirting
+        // and cornice are not "flat"), so the spot is given and only the wall's face is measured.
+        Vector3 courtOut = Vector3.right;
+        Vector3 probe = M(LunaManor.Courtyard.xMin + 1.2f, 1.6f, 17.3f);
+        if (WallFace(probe, -courtOut, 3f, out Vector3 courtFace))
+        {
+            Vector3 courtFoot = new Vector3(courtFace.x, 0f, courtFace.z);
+            WallMan(parent, courtFoot - courtOut * 0.22f, courtOut, player, wallScale);
+            Debug.Log("[FloodedHouse] wall man: varanda at " + courtFoot.ToString("F2") + " facing " + courtOut);
+            return;
+        }
+
         foreach ((string name, Rect room) in new[] { ("passagem", LunaManor.Passagem), ("bunker", LunaManor.Bunker), ("depósito", LunaManor.Deposito), ("lavanderia", LunaManor.Lavanderia) })
         {
             if (FreePanelSpot(room, 2.7f, 2.65f, 1.15f, out Vector3 foot, out Vector3 outward))
@@ -198,7 +216,7 @@ public static partial class FloodedHouseBuilder
     }
 
     // The three pieces share one pivot (the middle of the foot of the wall's back face). Root: +Z out of the wall.
-    internal static GameObject WallMan(Transform parent, Vector3 foot, Vector3 outward, Transform viewer)
+    internal static GameObject WallMan(Transform parent, Vector3 foot, Vector3 outward, Transform viewer, float scale = 1f)
     {
         GameObject man = new GameObject("WallMan");
         man.transform.SetParent(parent, false);
@@ -251,6 +269,7 @@ public static partial class FloodedHouseBuilder
         man.AddComponent<WallManEye>().Configure(pivot, Camera.main != null ? Camera.main.transform : null);
 
         man.transform.SetPositionAndRotation(foot, Quaternion.LookRotation(outward, Vector3.up));
+        man.transform.localScale = Vector3.one * scale;
         return man;
     }
 

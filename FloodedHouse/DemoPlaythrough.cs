@@ -100,6 +100,12 @@ public sealed class DemoPlaythrough : MonoBehaviour
 
         // The power room's Drowned wakes at the blackout.
         Advance("FindLight");
+        // The power room is grown shut until the basement key (26/11): cleared here, the test shoots through its door.
+        foreach (GrowthBarrier barrier in FindObjectsByType<GrowthBarrier>(FindObjectsInactive.Include))
+        {
+            barrier.RestoreOpen();
+        }
+
         DrownedBrain powerRoom = (DrownedBrain)Field(director, "powerRoomDrowned");
         DrownedBrain laundry = (DrownedBrain)Field(director, "laundryDrowned");
         Note("FindLight: powerRoom active=" + powerRoom.gameObject.activeSelf + " laundry active=" + laundry.gameObject.activeSelf);

@@ -115,6 +115,9 @@ public static partial class FloodedHouseBuilder
 
     // ---------------------------------------------------------------- the courtyard garden
 
+    // The mushroom goblet's size over Dayse's model (2.7 m tall): about the height of the house (26/11).
+    private const float GobletScale = 2.8f;
+
     private static void GardenFlora(Transform parent)
     {
         float y = LunaManor.GardenFloor;
@@ -124,6 +127,21 @@ public static partial class FloodedHouseBuilder
         // its pool just over the flood.
         Vector3 tree = M(4.4f, y, 13.3f);
         GameObject swampTree = ModelProp("SwampTree", g, tree, Quaternion.Euler(0f, 20f, 0f));
+        // Only the trunk stops the player (26/11, found walking the demo with real input: the box fitted to the whole
+        // crown was a solid block of 5.2 x 7.5 m on the lawn, and with the reeds round it the way from the laundry to
+        // the grand stair, the chase's route, was walled off).
+        foreach (Collider old in swampTree.GetComponentsInChildren<Collider>())
+        {
+            Object.DestroyImmediate(old);
+        }
+
+        GameObject trunk = new GameObject("Trunk");
+        trunk.transform.SetParent(g, false);
+        trunk.transform.position = tree + Vector3.up * 2.5f;
+        CapsuleCollider trunkStop = trunk.AddComponent<CapsuleCollider>();
+        trunkStop.radius = 0.6f;
+        trunkStop.height = 5f;
+        trunk.transform.SetParent(swampTree.transform, true);
         // Dead wet wood, not bleached bone: at full tint the tree flashed pure white under the lightning (13/11).
         foreach (Renderer r in swampTree.GetComponentsInChildren<Renderer>())
         {
@@ -158,7 +176,8 @@ public static partial class FloodedHouseBuilder
             {
                 float a = angle * Mathf.Deg2Rad;
                 Vector3 edge = tree + new Vector3(Mathf.Cos(a) * 2.3f, 0.02f, Mathf.Sin(a) * 1.7f);
-                GameObject reeds = ModelProp("AquaticReeds", g, edge, Quaternion.Euler(0f, angle * 2.3f, 0f));
+                // Walked through, like the grass (no collider).
+                GameObject reeds = ModelProp("AquaticReeds", g, edge, Quaternion.Euler(0f, angle * 2.3f, 0f), false);
                 reeds.transform.localScale *= scale;
             }
 
@@ -187,6 +206,23 @@ public static partial class FloodedHouseBuilder
             {
                 // Remodelled by Dayse on 17/11 (two open cups on two stems, textured by Meshy): one liquid per cup.
                 GameObject cup = ModelProp("MushroomGoblet", g, at, Quaternion.Euler(0f, yaw, 0f));
+                // Dayse, 26/11: "ela precisa ser maior, meio que da altura da casa". The model is 2.7 m; the eaves of the
+                // upper floor are at 7.5 m.
+                cup.transform.localScale *= GobletScale;
+                // Only the stems stop the player: the box of the whole model would be a 4.8 m block on the lawn, between
+                // the grand stair and the gallery.
+                foreach (Collider old in cup.GetComponentsInChildren<Collider>())
+                {
+                    Object.DestroyImmediate(old);
+                }
+
+                GameObject stems = new GameObject("Stems");
+                stems.transform.SetParent(g, false);
+                stems.transform.position = at + Vector3.up * 2f;
+                CapsuleCollider stemStop = stems.AddComponent<CapsuleCollider>();
+                stemStop.radius = 0.3f * GobletScale;
+                stemStop.height = 4f;
+                stems.transform.SetParent(cup.transform, true);
                 foreach (Renderer r in cup.GetComponentsInChildren<Renderer>())
                 {
                     // The same wet, faintly glowing flesh as the giant mushroom it replaces (its veins carry the glow), at about
@@ -207,8 +243,8 @@ public static partial class FloodedHouseBuilder
                 // point at 1.48 m round (-0.28, 0.26), radius 0.30, floor at 1.22.
                 LiquidInBowls(cup, new[] { (new Vector3(0.08f, 2.33f, -0.03f), 0.5f, 1.92f), (new Vector3(-0.28f, 1.48f, 0.26f), 0.27f, 1.22f) }, 0.82f, 0.1f,LiquidMaterial("LiquidBoilingBlue", new Color(0.02f, 0.08f, 0.14f), new Color(0.07f, 0.24f, 0.36f), 1f, 0.6f));
                 Bubbles(g, at + Vector3.up * 0.15f);
-                Halo(g, "FungusHaloBlue", at + Vector3.up * 0.02f, Vector3.up, 2.6f, new Color(0.3f, 0.6f, 1f));
-                Loop3D(cup.transform, "Ambience/boiling_loop.wav", 0.35f, 6f);
+                Halo(g, "FungusHaloBlue", at + Vector3.up * 0.02f, Vector3.up, 2.6f * GobletScale * 0.7f, new Color(0.3f, 0.6f, 1f));
+                Loop3D(cup.transform, "Ambience/boiling_loop.wav", 0.35f, 6f * GobletScale * 0.6f);
                 continue;
             }
 
@@ -351,14 +387,24 @@ public static partial class FloodedHouseBuilder
             // The fungus light in the north gallery (the creatures' safe zone): its glow is this colony.
             (M(1.5f, UF + 1.8f, 21.49f), Vector3.back, 1.6f), (M(-3f, UF + 0.012f, 20.4f), Vector3.up, 1.4f), (M(-1f, UC - 0.012f, 20.5f), Vector3.down, 2.0f),
             (M(-6f, UF + 2.2f, 21.49f), Vector3.back, 1.3f),
+            // Spread through the house (Dayse, 26/11: "os fungos podem ser maiores e mais espaçados pela casa"): on the
+            // ceilings and high on the walls of the rooms of the demo's path, off the lamps and over the furniture.
+            (M(-2.2f, GC - 0.012f, 3.2f), Vector3.down, 2.2f), (M(-9.4f, GC - 0.012f, 7.2f), Vector3.down, 2.0f), (M(-16.6f, GC - 0.012f, 7.4f), Vector3.down, 2.3f),
+            (M(-12.4f, GC - 0.012f, 13.6f), Vector3.down, 1.9f), (M(9.6f, GC - 0.012f, 7.4f), Vector3.down, 2.0f), (M(-8.7f, GC - 0.012f, 16.2f), Vector3.down, 2.1f),
+            (M(9.1f, GC - 0.012f, 15.1f), Vector3.down, 2.0f), (M(-5.2f, GC - 0.012f, 20.4f), Vector3.down, 1.8f), (M(-2.6f, GC - 0.012f, 23.4f), Vector3.down, 2.2f),
+            (M(14.1f, GC - 0.012f, 21.3f), Vector3.down, 1.7f), (M(-9.86f, UF + 2.55f, 14.3f), Vector3.right, 1.8f), (M(-8.8f, UC - 0.012f, 18.4f), Vector3.down, 1.9f),
         };
         bool models = BlueFungusReady();
+        int index = 0;
         foreach ((Vector3 at, Vector3 outward, float size) in patches)
         {
+            // The first fifteen are the colonies of 16/11, placed between the furniture at up to 1.25 m (bigger, they
+            // grow into the pantry's shelves and the bathroom's fittings: HouseAudit, 26/11); the spread ones take their size.
+            bool old = index++ < 15;
             if (models)
             {
                 // Dayse's blue fungus in place of the film of powder; its spill on the surface stays.
-                BlueFungusPatch(c, at, outward, size);
+                BlueFungusPatch(c, at, outward, old ? Mathf.Min(size, 1.25f) : size);
                 Halo(c, "LuminaHalo", at + outward * 0.004f, outward, size * 1.6f, new Color(0.2f, 0.95f, 0.8f));
                 continue;
             }

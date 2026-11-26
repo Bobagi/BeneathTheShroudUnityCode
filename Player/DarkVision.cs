@@ -98,8 +98,9 @@ public sealed class DarkVision : MonoBehaviour
             target *= torchShare;
         }
 
-        fill.intensity = Mathf.MoveTowards(fill.intensity, target, fadeSpeed * intensity * Time.deltaTime);
-        fill.range = under ? underwaterRange : range;
+        // The fade takes about a second whatever the level.
+        fill.intensity = Mathf.MoveTowards(fill.intensity, target, fadeSpeed * Mathf.Max(intensity, target) * Time.deltaTime);
+        fill.range = under ? underwaterRange : (GameTuning.Instance.darkVisionRange > 0f ? GameTuning.Instance.darkVisionRange : range);
         fill.color = under ? underwaterColor : color;
     }
 

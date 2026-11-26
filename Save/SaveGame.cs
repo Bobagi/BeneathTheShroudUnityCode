@@ -29,6 +29,8 @@ public static class SaveGame
         public List<string> items = new List<string>();
         public List<string> archive = new List<string>();
         public List<string> doorsOpen = new List<string>();
+        // Growth barriers already cleared (26/11).
+        public List<string> barriersOpen = new List<string>();
         public List<string> pickupsTaken = new List<string>();
         public List<string> recordersHeard = new List<string>();
 
