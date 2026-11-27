@@ -6,8 +6,10 @@ using UnityEngine;
 // that hits something within 12 m (a ceiling, the roof, the ground-floor slab seen from the basement), so a
 // new building needs no zones. Put it next to the AudioSource; its volume is driven from here, and one-shots
 // played on the same source (thunder) scale with it. Rain also has an inside layer: the recorded rain on the
-// roof (SoundLibrary), heard only under cover at GameTuning.roofRainVolume. Sea with no clip of its own
-// plays the recorded sea from the SoundLibrary.
+// roof (SoundLibrary), heard only under cover at GameTuning.roofRainVolume. There is ONE such layer for the whole
+// scene, owned by the first rain source (26/11: each of the three rain sources had its own, a 2D sound three times
+// over, "raining beside the ear" indoors), and it goes through its own low-pass (roofRainCutoff) so it sits far
+// above, not at the listener. Sea with no clip of its own plays the recorded sea from the SoundLibrary.
 [RequireComponent(typeof(AudioSource))]
 public sealed class AmbienceSource : MonoBehaviour
 {
@@ -26,6 +28,8 @@ public sealed class AmbienceSource : MonoBehaviour
     private AudioLowPassFilter lowPass;
     private float covered = -1f;
     private AudioSource insideLayer;
+    private AudioLowPassFilter insideLowPass;
+    private static AmbienceSource insideOwner;
 
     // Rain sources playing in the scene (the mask's visor takes drops only while it rains and the sky is open).
     public static int RainSources { get; private set; }
@@ -43,6 +47,11 @@ public sealed class AmbienceSource : MonoBehaviour
         if (kind == Kind.Rain)
         {
             RainSources--;
+        }
+
+        if (insideOwner == this)
+        {
+            insideOwner = null;
         }
     }
 
@@ -68,8 +77,9 @@ public sealed class AmbienceSource : MonoBehaviour
             source.Play();
         }
 
-        if (kind == Kind.Rain && library.rainRoofInsideLoop != null)
+        if (kind == Kind.Rain && library.rainRoofInsideLoop != null && insideOwner == null)
         {
+            insideOwner = this;
             GameObject layer = new GameObject("RoofRain");
             layer.transform.SetParent(transform, false);
             insideLayer = layer.AddComponent<AudioSource>();
@@ -78,6 +88,8 @@ public sealed class AmbienceSource : MonoBehaviour
             insideLayer.spatialBlend = 0f;
             insideLayer.volume = 0f;
             insideLayer.time = Random.Range(0f, library.rainRoofInsideLoop.length);
+            insideLowPass = layer.AddComponent<AudioLowPassFilter>();
+            insideLowPass.cutoffFrequency = GameTuning.Instance.roofRainCutoff;
             insideLayer.Play();
         }
     }
@@ -111,6 +123,7 @@ public sealed class AmbienceSource : MonoBehaviour
         if (insideLayer != null)
         {
             insideLayer.volume = tuning.roofRainVolume * covered;
+            insideLowPass.cutoffFrequency = tuning.roofRainCutoff;
         }
     }
 }

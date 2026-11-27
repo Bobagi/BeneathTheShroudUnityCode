@@ -50,6 +50,7 @@ public sealed class DarkVision : MonoBehaviour
     private float fadeSpeed = 1.5f;
 
     private Light fill;
+    private Light bodyFill;
     private readonly List<Light> practicals = new List<Light>();
     private float darkness = 1f;
     private float nextSample;
@@ -80,6 +81,21 @@ public sealed class DarkVision : MonoBehaviour
                 practicals.Add(light);
             }
         }
+
+        // The body's own share (26/11): with the fill on layer 1 only, the chest and legs seen looking down were a
+        // pure black cut-out over a lit floor. A second, much weaker light at the eye lights layer 2 (the body) alone,
+        // scaled so the chest a palm away reads like the floor a step away (GameTuning.darkVisionBodyShare).
+        GameObject own = new GameObject("DarkVisionBody");
+        own.transform.SetParent(eye, false);
+        own.transform.localPosition = new Vector3(0f, 0.06f, 0.1f);
+        bodyFill = own.AddComponent<Light>();
+        bodyFill.type = LightType.Point;
+        bodyFill.shadows = LightShadows.None;
+        bodyFill.renderMode = LightRenderMode.ForcePixel;
+        bodyFill.range = 2.2f;
+        bodyFill.intensity = 0f;
+        own.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
+        SetLayers(bodyFill, 2u);
     }
 
     private void Update()
@@ -102,6 +118,8 @@ public sealed class DarkVision : MonoBehaviour
         fill.intensity = Mathf.MoveTowards(fill.intensity, target, fadeSpeed * Mathf.Max(intensity, target) * Time.deltaTime);
         fill.range = under ? underwaterRange : (GameTuning.Instance.darkVisionRange > 0f ? GameTuning.Instance.darkVisionRange : range);
         fill.color = under ? underwaterColor : color;
+        bodyFill.intensity = fill.intensity * GameTuning.Instance.darkVisionBodyShare;
+        bodyFill.color = fill.color;
     }
 
     private static void SetLayers(Light light, uint mask)

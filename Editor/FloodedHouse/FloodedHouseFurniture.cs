@@ -117,6 +117,8 @@ public static partial class FloodedHouseBuilder
             cassette.transform.position += Vector3.up * (M(V2(-15.4f, 11.6f), GC).y - 0.04f - RendererBounds(cassette).min.y);
         }
 
+        KitchenFit(f);
+
         // ---------------- pantry and china room
         GameObject shelves1 = Against(f, "SteelShelves2", V2(-14.4f, 18.4f), Vector2.right, 0f);
         GameObject shelves2 = Against(f, "SteelShelves2", V2(-14.4f, 21.6f), Vector2.right, 0f);

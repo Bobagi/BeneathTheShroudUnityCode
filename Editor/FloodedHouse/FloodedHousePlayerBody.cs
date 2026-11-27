@@ -193,6 +193,7 @@ public static partial class FloodedHouseBuilder
         ArmsFromRig fromRig = bodyObject.GetComponent<ArmsFromRig>() ?? bodyObject.AddComponent<ArmsFromRig>();
         SetField(fromRig, "rig", arms);
         PlayerBody body = bodyObject.AddComponent<PlayerBody>();
+        NeckPlug(bodyObject);
         SetField(body, "controller", controller);
         SetField(body, "arms", arms);
         return body;

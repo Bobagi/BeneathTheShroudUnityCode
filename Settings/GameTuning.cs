@@ -142,6 +142,15 @@ public sealed class GameTuning : ScriptableObject
     [Tooltip("Na água: quanto a cabeça do corpo fica atrás da câmera (metros). Em terra a câmera fica nos olhos.")]
     [Range(-0.1f, 0.5f)] public float bodyBehindEye = 0.15f;
 
+    [Tooltip("Em terra: quanto a câmera fica à frente do eixo do corpo (metros), onde estão os olhos da cabeça.")]
+    [Range(0f, 0.2f)] public float eyeForward = 0.07f;
+
+    [Tooltip("Olhando para baixo, quanto a câmera avança a mais (a cabeça se curva): mostra peito e pés, não a gola.")]
+    [Range(0f, 0.4f)] public float lookDownEyeForward = 0.17f;
+
+    [Tooltip("Olhando para baixo, quanto a câmera desce (metros).")]
+    [Range(0f, 0.2f)] public float lookDownEyeDrop = 0.05f;
+
     [Tooltip("Nadando, quanto a cabeça do corpo fica abaixo da câmera (metros).")]
     [Range(0f, 0.4f)] public float swimHeadBelowEye = 0.05f;
 
@@ -527,6 +536,9 @@ public sealed class GameTuning : ScriptableObject
     [Range(2f, 12f)] public float darkVisionRange = 6.5f;
     public float darkVisionUnderwater = 0.8f;
 
+    [Tooltip("Luz própria no corpo do jogador (peito, pernas ao olhar para baixo), como fração da luz própria. 0 = corpo preto.")]
+    [Range(0f, 0.3f)] public float darkVisionBodyShare = 0.018f;
+
     [Header("Mar")]
     [Tooltip("Centro da ilha no plano do mar (x, z): as ondas andam em direção a ele.")]
     public Vector2 islandCenter = Vector2.zero;
@@ -558,13 +570,19 @@ public sealed class GameTuning : ScriptableObject
     [Range(0f, 1f)] public float windVolume = 0.3f;
 
     [Tooltip("Debaixo de teto, quanto do som de fora (chuva, trovão, mar, vento) passa: 0,4 = 40%.")]
-    [Range(0f, 1f)] public float coveredAmbienceVolume = 0.4f;
+    [Range(0f, 1f)] public float coveredAmbienceVolume = 0.22f;
 
     [Tooltip("Debaixo de teto, o som de fora fica abafado: frequência de corte (Hz). Menor = mais abafado.")]
-    [Range(300f, 22000f)] public float coveredAmbienceCutoff = 1200f;
+    [Range(300f, 22000f)] public float coveredAmbienceCutoff = 650f;
 
     [Tooltip("Chuva no telhado ouvida de dentro (gravação), que entra junto com a chuva de fora abafada.")]
-    [Range(0f, 1f)] public float roofRainVolume = 0.3f;
+    [Range(0f, 1f)] public float roofRainVolume = 0.09f;
+
+    [Tooltip("Corte (Hz) da chuva no telhado ouvida de dentro: menor = mais longe e abafada.")]
+    [Range(200f, 8000f)] public float roofRainCutoff = 800f;
+
+    [Tooltip("Segundos que uma porta leva para abrir (o rangido gravado dura uns 2,3 s e acaba junto). Fechar leva 80% disso.")]
+    [Range(0.6f, 5f)] public float doorOpenSeconds = 2.4f;
 
     [Tooltip("Ambiente embaixo d'água (gravação), ao mergulhar.")]
     [Range(0f, 1f)] public float underwaterAmbienceVolume = 0.5f;

@@ -261,7 +261,14 @@ public sealed class FirstPersonController : MonoBehaviour
         eye.y = eyeBase + bob.y;
         // Back over the feet after riding the head through a sit.
         eye.x = Mathf.Lerp(eye.x, bob.x, blend);
-        eye.z = Mathf.Lerp(eye.z, 0f, blend);
+        // The eyes are in front of the neck, and a head that bows carries them further forward and a little down
+        // (26/11: the camera stood over the feet, 7 cm behind the body's eyes, so looking down showed the collar and
+        // the neck's cut from above and behind). On land only: in the water the body trails the eye by itself.
+        GameTuning tuning = GameTuning.Instance;
+        bool onLand = CurrentMode == Mode.Walking || CurrentMode == Mode.Wading;
+        float bow = onLand ? Mathf.Sin(Mathf.Clamp(pitch, 0f, 90f) * Mathf.Deg2Rad) : 0f;
+        eye.y -= tuning.lookDownEyeDrop * bow;
+        eye.z = Mathf.Lerp(eye.z, onLand ? tuning.eyeForward + tuning.lookDownEyeForward * bow : 0f, blend);
         cameraPivot.localPosition = eye;
     }
 

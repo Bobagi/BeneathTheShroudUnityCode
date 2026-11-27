@@ -29,9 +29,6 @@ public sealed class Door : Interactable
     [SerializeField]
     private float openAngle = 100f;
 
-    [SerializeField]
-    private float openSeconds = 1.1f;
-
     [Tooltip("Once open, E closes it again.")]
     [SerializeField]
     private bool closable = true;
@@ -249,23 +246,45 @@ public sealed class Door : Interactable
         RememberClosed();
         moving = true;
         yield return new WaitForSeconds(delay);
-        if (loud)
+        // The creak is this door's own voice, started with the swing and gone with it: it plays as the source's clip
+        // (not a one-shot) so it can be faded when the leaf stops (26/11: the 2.7 s recording ran on after a 1.1 s swing).
+        AudioClip creak = loud ? (toOpen ? openClip : (closeClip != null ? closeClip : openClip)) : null;
+        if (creak != null && source != null)
         {
-            Play(toOpen ? openClip : (closeClip != null ? closeClip : openClip), 0.9f);
+            source.Stop();
+            source.clip = creak;
+            source.loop = false;
+            source.volume = 0.9f;
+            source.pitch = Random.Range(0.92f, 1.02f);
+            source.Play();
         }
 
         Quaternion from = transform.localRotation;
         Quaternion target = toOpen ? closedRotation * Quaternion.Euler(0f, openAngle, 0f) : closedRotation;
-        float seconds = toOpen ? openSeconds : openSeconds * 0.8f;
+        // Slow (GameTuning.doorOpenSeconds): the latch gives, the leaf creeps the first hand's width, then swings and
+        // settles. What is behind it shows a little at a time.
+        float seconds = GameTuning.Instance.doorOpenSeconds * (toOpen ? 1f : 0.8f);
         for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
         {
-            // Heavy at first, then it swings.
-            float e = 1f - Mathf.Pow(1f - Mathf.SmoothStep(0f, 1f, t), 2f);
+            float e = Mathf.SmoothStep(0f, 1f, Mathf.Pow(t, toOpen ? 1.35f : 1.1f));
             transform.localRotation = Quaternion.Slerp(from, target, e);
             yield return null;
         }
 
         transform.localRotation = target;
+        if (creak != null && source != null && source.clip == creak)
+        {
+            // Whatever is left of the recording dies with the movement.
+            for (float f = 0f; f < 1f && source.isPlaying; f += Time.deltaTime / 0.25f)
+            {
+                source.volume = 0.9f * (1f - f);
+                yield return null;
+            }
+
+            source.Stop();
+            source.volume = 1f;
+        }
+
         moving = false;
         open = toOpen;
         if (toOpen)
@@ -278,6 +297,7 @@ public sealed class Door : Interactable
     {
         if (source != null && clip != null)
         {
+            source.volume = 1f;
             source.pitch = Random.Range(0.92f, 1.05f);
             source.PlayOneShot(clip, volume);
         }
